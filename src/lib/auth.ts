@@ -191,44 +191,24 @@ export class AuthService {
           .from('users')
           .select('onboarding_completed')
           .eq('id', userId)
-          .single(),
+          .maybeSingle(),
         timeoutPromise
       ])
 
-      // Handle case where user doesn't exist in database yet
-      if (error && error.code === 'PGRST116') {
-        // Try to create user record
-        try {
-          await Promise.race([
-            supabase
-              .from('users')
-              .insert({
-                id: userId,
-                email: '', // Will be updated by auth trigger
-                onboarding_completed: false
-              }),
-            new Promise<never>((_, reject) => 
-              setTimeout(() => reject(new Error('User creation timeout')), 2000)
-            )
-          ])
-        } catch (insertError) {
-          // Even if creation fails, return false (not onboarded)
-          return false
-        }
-        
-        return false
-      }
-
       if (error) {
-        // If it's a permission error or table doesn't exist, assume not onboarded
+        // If it's a permission error or table doesn't exist, fall back to auth metadata.
         if (error.code === 'PGRST301' || error.code === '42P01') {
-          return false
+          const { data: authData } = await supabase.auth.getUser()
+          return !!authData.user?.user_metadata?.onboarding_completed
         }
         return false
       }
 
+      // maybeSingle() returns null when row is missing or not visible by policy.
+      // In that case, fall back to auth metadata instead of trying to insert a row.
       if (!data) {
-        return false
+        const { data: authData } = await supabase.auth.getUser()
+        return !!authData.user?.user_metadata?.onboarding_completed
       }
 
       return data.onboarding_completed || false
@@ -248,6 +228,17 @@ export class AuthService {
 
       if (error) {
         return { success: false, error: error.message }
+      }
+
+      // Keep auth metadata in sync so route guards have a reliable fallback.
+      const { error: metadataError } = await supabase.auth.updateUser({
+        data: { onboarding_completed: true }
+      })
+
+      // Do not fail onboarding completion if auth metadata update is blocked.
+      // The canonical source remains the users table flag.
+      if (metadataError) {
+        return { success: true }
       }
 
       return { success: true }

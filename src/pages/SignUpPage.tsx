@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,27 +12,39 @@ import { toast } from "@/hooks/use-toast";
 const SignUpPage = () => {
   const [form, setForm] = useState({ company: "", email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
-  const [showOTP, setShowOTP] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const showOTP = searchParams.get("step") === "verify";
   const [otp, setOTP] = useState("");
   const { isDark, toggle } = useTheme();
   const { signUp, verifyOTP, sendOTP, isSigningUp, isVerifyingOTP, isSendingOTP } = useAuthContext();
   const navigate = useNavigate();
 
+  useEffect(() => {
+    const emailFromParams = searchParams.get("email");
+    if (showOTP && emailFromParams && form.email !== emailFromParams) {
+      setForm((prev) => ({ ...prev, email: emailFromParams }));
+    }
+  }, [showOTP, searchParams, form.email]);
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
-      await signUp({
+      const result = await signUp({
         company: form.company,
         email: form.email,
         password: form.password
       });
 
+      if (!result.success) {
+        throw new Error(result.error || "An error occurred");
+      }
+
       toast({
         title: "Account created",
         description: "Please check your email for verification code."
       });
-      setShowOTP(true);
+      setSearchParams({ step: "verify", email: form.email });
     } catch (error: any) {
       toast({
         title: "Sign up failed",
@@ -45,7 +58,10 @@ const SignUpPage = () => {
     e.preventDefault();
 
     try {
-      await verifyOTP({ token: otp, email: form.email });
+      const result = await verifyOTP({ token: otp, email: form.email });
+      if (!result.success) {
+        throw new Error(result.error || "An error occurred");
+      }
 
       toast({
         title: "Email verified",
@@ -63,7 +79,10 @@ const SignUpPage = () => {
 
   const resendOTP = async () => {
     try {
-      await sendOTP(form.email);
+      const result = await sendOTP(form.email);
+      if (!result.success) {
+        throw new Error(result.error || "An error occurred");
+      }
       
       toast({
         title: "Code resent",

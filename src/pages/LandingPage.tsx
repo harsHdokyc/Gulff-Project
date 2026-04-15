@@ -58,7 +58,7 @@ const testimonials = [
     company: "Gulf Trading Co.",
   },
   {
-    quote: "The simplicity is what sold us. No training needed — our team was up and running in minutes, not weeks.",
+    quote: "The simplicity is what sold us. No training needed our team was up and running in minutes, not weeks.",
     name: "Michael Chen",
     role: "CEO",
     company: "TechBridge Solutions",
@@ -194,7 +194,7 @@ const LandingPage = () => {
           </AnimatedSection>
           <AnimatedSection delay={200}>
             <p className="mt-6 text-lg md:text-xl text-muted-foreground leading-relaxed max-w-2xl">
-              The modern platform that helps businesses track regulatory tasks, manage documents, and stay ahead of deadlines — all in one place.
+              The modern platform that helps businesses track regulatory tasks, manage documents, and stay ahead of deadlines all in one place.
             </p>
           </AnimatedSection>
           <AnimatedSection delay={300}>
@@ -432,7 +432,7 @@ const LandingPage = () => {
               Ready to simplify your compliance?
             </h2>
             <p className="mt-4 text-muted-foreground max-w-lg mx-auto">
-              Join hundreds of businesses that trust ComplianceHQ to keep them on track. Start free — no credit card required.
+              Join hundreds of businesses that trust ComplianceHQ to keep them on track. Start free no credit card required.
             </p>
             <div className="mt-8 flex flex-wrap justify-center gap-4">
               <Link to="/signup">
