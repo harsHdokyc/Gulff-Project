@@ -19,17 +19,24 @@ const SignInPage = () => {
     e.preventDefault();
 
     try {
-      await signIn({
+      const result = await signIn({
         email: form.email,
         password: form.password
       });
       
-      toast({
-        title: "Welcome back",
-        description: "Signing you in..."
-      });
-      
-      // Navigation will be handled by auth state change
+      if (result.success) {
+        toast({
+          title: "Welcome back",
+          description: "Signing you in..."
+        });
+        // Navigation will be handled by auth state change
+      } else {
+        toast({
+          title: "Sign in failed",
+          description: result.error || "An error occurred",
+          variant: "destructive"
+        });
+      }
     } catch (error: any) {
       toast({
         title: "Sign in failed",
