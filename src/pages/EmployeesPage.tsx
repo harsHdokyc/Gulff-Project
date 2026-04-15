@@ -27,20 +27,14 @@ const computeStatus = (visaExpiry: string, emiratesIdExpiry: string): string => 
   return "Active";
 };
 
-const initialEmployees: Employee[] = [
-  { id: 1, name: "Ahmed Al Maktoum", visaExpiry: "2024-04-02", emiratesIdExpiry: "2024-06-15", status: "Warning" },
-  { id: 2, name: "Sara Khan", visaExpiry: "2025-01-20", emiratesIdExpiry: "2025-02-10", status: "Active" },
-  { id: 3, name: "Rajesh Patel", visaExpiry: "2024-08-30", emiratesIdExpiry: "2024-09-01", status: "Active" },
-  { id: 4, name: "Maria Santos", visaExpiry: "2024-03-10", emiratesIdExpiry: "2024-03-10", status: "Expired" },
-];
-
 const emptyForm = { name: "", visaExpiry: "", emiratesIdExpiry: "" };
 
 const EmployeesPage = () => {
-  const [employees, setEmployees] = useState<Employee[]>(initialEmployees);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);

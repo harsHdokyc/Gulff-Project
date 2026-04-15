@@ -34,17 +34,10 @@ const docTypeLabels: Record<string, string> = {
   "other": "Other",
 };
 
-const initialDocs: Doc[] = [
-  { id: 1, name: "Trade License 2024", type: "trade-license", expiry: "2024-03-15", status: "Expired" },
-  { id: 2, name: "VAT Certificate", type: "vat-certificate", expiry: "2025-12-31", status: "Active" },
-  { id: 3, name: "Office Lease Agreement", type: "lease", expiry: "2024-06-30", status: "Expiring Soon" },
-  { id: 4, name: "Insurance Policy", type: "insurance", expiry: "2024-04-10", status: "Expiring Soon" },
-];
-
 const emptyForm = { name: "", type: "", expiry: "", fileName: "" };
 
 const DocumentsPage = () => {
-  const [docs, setDocs] = useState<Doc[]>(initialDocs);
+  const [docs, setDocs] = useState<Doc[]>([]);
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [search, setSearch] = useState("");

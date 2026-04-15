@@ -5,79 +5,73 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useTheme } from "@/hooks/useTheme";
 import { Sun, Moon, Loader2 } from "lucide-react";
-import { authService } from "@/lib/auth";
+import { useAuthContext } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 
 const SignUpPage = () => {
   const [form, setForm] = useState({ company: "", email: "", password: "" });
-  const [loading, setLoading] = useState(false);
   const [showOTP, setShowOTP] = useState(false);
   const [otp, setOTP] = useState("");
   const { isDark, toggle } = useTheme();
+  const { signUp, verifyOTP, sendOTP, isSigningUp, isVerifyingOTP, isSendingOTP } = useAuthContext();
   const navigate = useNavigate();
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
 
-    const result = await authService.signUp({
-      company: form.company,
-      email: form.email,
-      password: form.password
-    });
+    try {
+      await signUp({
+        company: form.company,
+        email: form.email,
+        password: form.password
+      });
 
-    if (result.success) {
       toast({
         title: "Account created",
         description: "Please check your email for verification code."
       });
       setShowOTP(true);
-    } else {
+    } catch (error: any) {
       toast({
         title: "Sign up failed",
-        description: result.error,
+        description: error.message || "An error occurred",
         variant: "destructive"
       });
     }
-
-    setLoading(false);
   };
 
   const handleOTPVerification = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
 
-    const result = await authService.verifyOTP(otp, form.email);
+    try {
+      await verifyOTP({ token: otp, email: form.email });
 
-    if (result.success) {
       toast({
         title: "Email verified",
         description: "Redirecting to onboarding..."
       });
       navigate("/onboarding");
-    } else {
+    } catch (error: any) {
       toast({
         title: "Verification failed",
-        description: result.error,
+        description: error.message || "An error occurred",
         variant: "destructive"
       });
     }
-
-    setLoading(false);
   };
 
   const resendOTP = async () => {
-    const result = await authService.sendOTP(form.email);
-    
-    if (result.success) {
+    try {
+      await sendOTP(form.email);
+      
       toast({
         title: "Code resent",
         description: "Check your email for the new verification code."
       });
-    } else {
+    } catch (error: any) {
       toast({
         title: "Failed to resend",
-        description: result.error,
+        description: error.message || "An error occurred",
         variant: "destructive"
       });
     }
@@ -113,7 +107,7 @@ const SignUpPage = () => {
                 placeholder="Acme Corp" 
                 value={form.company} 
                 onChange={(e) => setForm({ ...form, company: e.target.value })} 
-                disabled={loading}
+                disabled={isSigningUp}
                 required
               />
             </div>
@@ -125,7 +119,7 @@ const SignUpPage = () => {
                 placeholder="you@company.com" 
                 value={form.email} 
                 onChange={(e) => setForm({ ...form, email: e.target.value })} 
-                disabled={loading}
+                disabled={isSigningUp}
                 required
               />
             </div>
@@ -137,12 +131,12 @@ const SignUpPage = () => {
                 placeholder="•••••••" 
                 value={form.password} 
                 onChange={(e) => setForm({ ...form, password: e.target.value })} 
-                disabled={loading}
+                disabled={isSigningUp}
                 required
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button type="submit" className="w-full" disabled={isSigningUp}>
+              {isSigningUp && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Create Account
             </Button>
           </form>
@@ -155,13 +149,13 @@ const SignUpPage = () => {
                 placeholder="12345678" 
                 value={otp} 
                 onChange={(e) => setOTP(e.target.value.replace(/\D/g, '').slice(0, 8))} 
-                disabled={loading}
+                disabled={isVerifyingOTP}
                 maxLength={8}
                 required
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button type="submit" className="w-full" disabled={isVerifyingOTP}>
+              {isVerifyingOTP && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Verify Email
             </Button>
             <Button 
@@ -169,7 +163,7 @@ const SignUpPage = () => {
               variant="outline" 
               className="w-full" 
               onClick={resendOTP}
-              disabled={loading}
+              disabled={isSendingOTP}
             >
               Resend Code
             </Button>

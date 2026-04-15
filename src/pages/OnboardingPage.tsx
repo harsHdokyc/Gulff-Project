@@ -1,29 +1,31 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTheme } from "@/hooks/useTheme";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuthContext } from "@/contexts/AuthContext";
 import { Sun, Moon, Loader2 } from "lucide-react";
-import { authService } from "@/lib/auth";
+import { onboardingService } from "@/lib/onboarding";
 import { toast } from "@/hooks/use-toast";
 
 const OnboardingPage = () => {
   const [step, setStep] = useState(1);
   const totalSteps = 4;
   const { isDark, toggle: toggleTheme } = useTheme();
-  const { user } = useAuth();
+  const { user, completeOnboarding, isCompletingOnboarding } = useAuthContext();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [companyId, setCompanyId] = useState<string | null>(null);
 
   // Step 1
   const [companyName, setCompanyName] = useState("");
   const [businessType, setBusinessType] = useState("");
   const [employeeCount, setEmployeeCount] = useState("");
   const [ownerName, setOwnerName] = useState("");
-  const [whatsapp, setWhatsapp] = useState("");
+  const [countryCode, setCountryCode] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
 
   // Step 2
   const [tradeLicenseExpiry, setTradeLicenseExpiry] = useState("");
@@ -36,12 +38,135 @@ const OnboardingPage = () => {
   // Step 4 (simplified)
   const [tradeLicenseDoc, setTradeLicenseDoc] = useState("");
 
-  const next = () => {
-    if (step < totalSteps) setStep(step + 1);
+  // Check if user should be here
+  useEffect(() => {
+    if (user && user.user_metadata?.onboarding_completed) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [user, navigate]);
+
+  const next = async () => {
+    if (step < totalSteps) {
+      // Validate current step before proceeding
+      if (step === 1) {
+        if (!companyName || !businessType || !employeeCount || !ownerName || !countryCode || !phoneNumber) {
+          toast({
+            title: "Missing Information",
+            description: "Please fill in all required fields.",
+            variant: "destructive"
+          });
+          return;
+        }
+        
+        // Create company
+        setLoading(true);
+        const result = await onboardingService.createCompany(user!.id, {
+          name: companyName,
+          business_type: businessType,
+          employee_count: employeeCount,
+          owner_name: ownerName,
+          whatsapp: `${countryCode}${phoneNumber}`
+        });
+        
+        if (result.success) {
+          setCompanyId(result.companyId || null);
+          setStep(step + 1);
+        } else {
+          toast({
+            title: "Error",
+            description: result.error,
+            variant: "destructive"
+          });
+        }
+        setLoading(false);
+      } else {
+        setStep(step + 1);
+      }
+    }
   };
 
   const prev = () => {
     if (step > 1) setStep(step - 1);
+  };
+
+  const handleCompleteOnboarding = async () => {
+    if (!user || !companyId) return;
+    
+    setLoading(true);
+    
+    // Update compliance info
+    const complianceResult = await onboardingService.updateComplianceInfo(companyId, {
+      trade_license_expiry: tradeLicenseExpiry,
+      visa_count: visaCount || undefined
+    });
+    
+    if (!complianceResult.success) {
+      toast({
+        title: "Error",
+        description: complianceResult.error,
+        variant: "destructive"
+      });
+      setLoading(false);
+      return;
+    }
+    
+    // Add first employee if provided
+    if (employeeName && employeeSalary) {
+      const employeeResult = await onboardingService.addFirstEmployee(companyId, {
+        name: employeeName,
+        salary: employeeSalary
+      });
+      
+      if (!employeeResult.success) {
+        toast({
+          title: "Error",
+          description: employeeResult.error,
+          variant: "destructive"
+        });
+        setLoading(false);
+        return;
+      }
+    }
+    
+    // Upload documents if provided
+    if (tradeLicenseDoc) {
+      const docResult = await onboardingService.uploadDocuments(companyId, {
+        trade_license_path: tradeLicenseDoc
+      });
+      
+      if (!docResult.success) {
+        toast({
+          title: "Error",
+          description: docResult.error,
+          variant: "destructive"
+        });
+        setLoading(false);
+        return;
+      }
+    }
+    
+    // Complete onboarding
+    try {
+      await completeOnboarding(user.id);
+      
+      toast({
+        title: "Welcome!",
+        description: "Your account is ready. Redirecting to dashboard...",
+      });
+      
+      // Navigation will be handled by auth state change
+      setTimeout(() => {
+        navigate("/dashboard", { replace: true });
+      }, 1000);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to complete onboarding",
+        variant: "destructive"
+      });
+    }
+    
+    setLoading(false);
   };
 
   return (
@@ -75,26 +200,63 @@ const OnboardingPage = () => {
             <p className="mt-1 text-sm text-muted-foreground">Tell us about your company.</p>
             <div className="mt-6 space-y-4">
               <div className="space-y-2">
-                <Label>Company Name</Label>
-                <Input placeholder="Acme Corp" value={companyName} onChange={(e) => setCompanyName(e.target.value)} />
+                <Label>Company Name *</Label>
+                <Input placeholder="Acme Corp" value={companyName} onChange={(e) => setCompanyName(e.target.value)} disabled={loading} />
               </div>
               <div className="space-y-2">
-                <Label>Owner/Manager Name</Label>
-                <Input placeholder="John Doe" value={ownerName} onChange={(e) => setOwnerName(e.target.value)} />
+                <Label>Owner/Manager Name *</Label>
+                <Input placeholder="John Doe" value={ownerName} onChange={(e) => setOwnerName(e.target.value)} disabled={loading} />
               </div>
               <div className="space-y-2">
-                <Label>WhatsApp Contact Number</Label>
-                <Input placeholder="+971 50 123 4567" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} />
+                <Label>WhatsApp Contact Number *</Label>
+                <div className="flex gap-2">
+                  <Select value={countryCode} onValueChange={setCountryCode} disabled={loading}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue placeholder="Code" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="+971">+971 UAE</SelectItem>
+                      <SelectItem value="+966">+966 KSA</SelectItem>
+                      <SelectItem value="+965">+965 Kuwait</SelectItem>
+                      <SelectItem value="+973">+973 Bahrain</SelectItem>
+                      <SelectItem value="+974">+974 Qatar</SelectItem>
+                      <SelectItem value="+968">+968 Oman</SelectItem>
+                      <SelectItem value="+20">+20 Egypt</SelectItem>
+                      <SelectItem value="+91">+91 India</SelectItem>
+                      <SelectItem value="+1">+1 USA</SelectItem>
+                      <SelectItem value="+44">+44 UK</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input 
+                    placeholder="50 123 4567" 
+                    value={phoneNumber} 
+                    onChange={(e) => setPhoneNumber(e.target.value)} 
+                    disabled={loading} 
+                    className="flex-1"
+                  />
+                </div>
               </div>
               <div className="space-y-2">
-                <Label>Business Type</Label>
-                <Select value={businessType} onValueChange={setBusinessType}>
+                <Label>Business Type *</Label>
+                <Select value={businessType} onValueChange={setBusinessType} disabled={loading}>
                   <SelectTrigger><SelectValue placeholder="Select business type" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="restaurant">Restaurant</SelectItem>
                     <SelectItem value="gym">Gym</SelectItem>
                     <SelectItem value="clinic">Clinic</SelectItem>
                     <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Employee Count *</Label>
+                <Select value={employeeCount} onValueChange={setEmployeeCount} disabled={loading}>
+                  <SelectTrigger><SelectValue placeholder="Select range" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1-5">1-5</SelectItem>
+                    <SelectItem value="5-15">5-15</SelectItem>
+                    <SelectItem value="15-50">15-50</SelectItem>
+                    <SelectItem value="50+">50+</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -110,11 +272,11 @@ const OnboardingPage = () => {
             <div className="mt-6 space-y-4">
               <div className="space-y-2">
                 <Label>Trade License Expiry Date</Label>
-                <Input type="date" value={tradeLicenseExpiry} onChange={(e) => setTradeLicenseExpiry(e.target.value)} />
+                <Input type="date" value={tradeLicenseExpiry} onChange={(e) => setTradeLicenseExpiry(e.target.value)} disabled={loading} />
               </div>
               <div className="space-y-2">
                 <Label>Number of Visas (optional)</Label>
-                <Input placeholder="e.g., 5" value={visaCount} onChange={(e) => setVisaCount(e.target.value)} />
+                <Input placeholder="e.g., 5" value={visaCount} onChange={(e) => setVisaCount(e.target.value)} disabled={loading} />
               </div>
             </div>
           </div>
@@ -127,24 +289,12 @@ const OnboardingPage = () => {
             <p className="mt-1 text-sm text-muted-foreground">Add your first employee.</p>
             <div className="mt-6 space-y-4">
               <div className="space-y-2">
-                <Label>Number of Employees</Label>
-                <Select value={employeeCount} onValueChange={setEmployeeCount}>
-                  <SelectTrigger><SelectValue placeholder="Select range" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1-5">1-5</SelectItem>
-                    <SelectItem value="5-15">5-15</SelectItem>
-                    <SelectItem value="15-50">15-50</SelectItem>
-                    <SelectItem value="50+">50+</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Employee Name (optional)</Label>
+                <Input placeholder="Employee name" value={employeeName} onChange={(e) => setEmployeeName(e.target.value)} disabled={loading} />
               </div>
               <div className="space-y-2">
-                <Label>Employee Name</Label>
-                <Input placeholder="Employee name" value={employeeName} onChange={(e) => setEmployeeName(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Salary</Label>
-                <Input placeholder="e.g., 5000" value={employeeSalary} onChange={(e) => setEmployeeSalary(e.target.value)} />
+                <Label>Salary (optional)</Label>
+                <Input placeholder="e.g., 5000" value={employeeSalary} onChange={(e) => setEmployeeSalary(e.target.value)} disabled={loading} />
               </div>
             </div>
           </div>
@@ -158,7 +308,7 @@ const OnboardingPage = () => {
             <div className="mt-6 space-y-4">
               <div className="rounded-md border border-border border-dashed p-8 text-center">
                 <p className="text-sm text-muted-foreground">Drag & drop your trade license here, or click to browse</p>
-                <Button variant="outline" size="sm" className="mt-3">Browse Files</Button>
+                <Button variant="outline" size="sm" className="mt-3" disabled={loading}>Browse Files</Button>
               </div>
             </div>
           </div>
@@ -167,12 +317,18 @@ const OnboardingPage = () => {
         {/* Navigation */}
         <div className="mt-8 flex justify-between">
           {step > 1 ? (
-            <Button variant="outline" onClick={prev}>Back</Button>
+            <Button variant="outline" onClick={prev} disabled={loading}>Back</Button>
           ) : <div />}
           {step < totalSteps ? (
-            <Button onClick={next}>Continue</Button>
+            <Button onClick={next} disabled={loading}>
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Continue
+            </Button>
           ) : (
-            <Button onClick={() => window.location.href = "/dashboard"}>Go to Dashboard</Button>
+            <Button onClick={handleCompleteOnboarding} disabled={isCompletingOnboarding || loading}>
+              {(isCompletingOnboarding || loading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Complete Setup
+            </Button>
           )}
         </div>
       </div>

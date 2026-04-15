@@ -24,7 +24,8 @@ export class AuthService {
   private static instance: AuthService
   private authStateCallbacks: Set<(state: AuthState) => void> = new Set()
 
-  private constructor() {}
+  private constructor() {
+  }
 
   static getInstance(): AuthService {
     if (!AuthService.instance) {
@@ -43,10 +44,10 @@ export class AuthService {
     // Set up Supabase listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        await this.notifyAuthState()
+        this.notifyAuthState()
       }
     )
-
+    
     return () => {
       subscription.unsubscribe()
       this.authStateCallbacks.delete(callback)
@@ -55,22 +56,37 @@ export class AuthService {
 
   // Get current auth state
   async getAuthState(): Promise<AuthState> {
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
-      return {
-        user: null,
-        loading: false,
-        isOnboarded: false
+    try {
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Auth getUser timeout')), 5000)
+      })
+      
+      const { data: { user }, error } = await Promise.race([
+        supabase.auth.getUser(),
+        timeoutPromise
+      ])
+      
+      if (error) {
+        // Fallback to getSession on timeout
+        if (error.message === 'Auth getUser timeout') {
+          const { data: { session } } = await supabase.auth.getSession()
+          if (session?.user) {
+            const isOnboarded = await this.checkOnboardingStatus(session.user.id)
+            return { user: session.user, loading: false, isOnboarded }
+          }
+        }
+        return { user: null, loading: false, isOnboarded: false }
       }
-    }
-
-    const isOnboarded = await this.checkOnboardingStatus(user.id)
-    
-    return {
-      user,
-      loading: false,
-      isOnboarded
+      
+      if (!user) {
+        return { user: null, loading: false, isOnboarded: false }
+      }
+      
+      const isOnboarded = await this.checkOnboardingStatus(user.id)
+      return { user, loading: false, isOnboarded }
+    } catch (error) {
+      return { user: null, loading: false, isOnboarded: false }
     }
   }
 
@@ -163,20 +179,61 @@ export class AuthService {
   }
 
   // Check onboarding status
-  private async checkOnboardingStatus(userId: string): Promise<boolean> {
+  async checkOnboardingStatus(userId: string): Promise<boolean> {
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('onboarding_completed')
-        .eq('id', userId)
-        .single()
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Database query timeout')), 3000)
+      })
+      
+      const { data, error } = await Promise.race([
+        supabase
+          .from('users')
+          .select('onboarding_completed')
+          .eq('id', userId)
+          .single(),
+        timeoutPromise
+      ])
 
-      if (error || !data) {
+      // Handle case where user doesn't exist in database yet
+      if (error && error.code === 'PGRST116') {
+        // Try to create user record
+        try {
+          await Promise.race([
+            supabase
+              .from('users')
+              .insert({
+                id: userId,
+                email: '', // Will be updated by auth trigger
+                onboarding_completed: false
+              }),
+            new Promise<never>((_, reject) => 
+              setTimeout(() => reject(new Error('User creation timeout')), 2000)
+            )
+          ])
+        } catch (insertError) {
+          // Even if creation fails, return false (not onboarded)
+          return false
+        }
+        
+        return false
+      }
+
+      if (error) {
+        // If it's a permission error or table doesn't exist, assume not onboarded
+        if (error.code === 'PGRST301' || error.code === '42P01') {
+          return false
+        }
+        return false
+      }
+
+      if (!data) {
         return false
       }
 
       return data.onboarding_completed || false
-    } catch {
+    } catch (error) {
+      // If any exception occurs, assume not onboarded rather than hanging
       return false
     }
   }
@@ -213,8 +270,12 @@ export class AuthService {
 
   // Notify all callbacks of auth state change
   private async notifyAuthState() {
-    const state = await this.getAuthState()
-    this.authStateCallbacks.forEach(callback => callback(state))
+    try {
+      const state = await this.getAuthState()
+      this.authStateCallbacks.forEach(callback => callback(state))
+    } catch (error) {
+      // Silently handle errors to prevent infinite loops
+    }
   }
 }
 

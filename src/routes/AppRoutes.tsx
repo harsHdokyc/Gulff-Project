@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuthContext } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AuthGuard } from "@/components/AuthGuard";
 import { ROUTES } from "./constants";
@@ -24,12 +24,15 @@ import DocumentsPage from "@/pages/DocumentsPage";
 import SettingsPage from "@/pages/SettingsPage";
 
 export function AppRoutes() {
-  const { user, loading, isOnboarded } = useAuth();
+  const { user, loading, isOnboarded } = useAuthContext();
 
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <div className="text-sm text-muted-foreground">Loading...</div>
+        </div>
       </div>
     );
   }

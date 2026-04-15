@@ -1,10 +1,11 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { LayoutDashboard, Shield, Users, FileText, Settings, Menu, Sun, Moon, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
 import NotificationCenter from "@/components/NotificationCenter";
 import { useTheme } from "@/hooks/useTheme";
+import { useAuthContext } from "@/contexts/AuthContext";
+import { useCompanyName } from "@/hooks/useCompanyQuery";
 
 const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
@@ -18,15 +19,19 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { isDark, toggle: toggleTheme } = useTheme();
+  const { user, signOut, isSigningOut } = useAuthContext();
+  const { data: companyName, isLoading: isCompanyLoading } = useCompanyName(user?.id);
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Sidebar */}
+      {/* Sticky Sidebar */}
       <aside
-        className={`${sidebarOpen ? "w-56" : "w-0 md:w-14"} flex-shrink-0 border-r border-border bg-card transition-all duration-200 overflow-hidden`}
+        className={`${sidebarOpen ? "w-56" : "w-0 md:w-14"} flex-shrink-0 border-r border-border bg-card transition-all duration-200 overflow-hidden sticky top-0 h-screen`}
       >
         <div className="h-16 flex items-center px-4 border-b border-border">
-          {sidebarOpen && <span className="font-heading text-sm font-semibold text-foreground">ComplianceHQ</span>}
+          <span className="font-heading text-sm font-semibold text-foreground">
+            {sidebarOpen ? "ComplianceHQ" : "CH"}
+          </span>
         </div>
         <nav className="p-2 space-y-0.5">
           {navItems.map((item) => {
@@ -49,10 +54,10 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
         </nav>
       </aside>
 
-      {/* Main */}
+      {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top bar */}
-        <header className="h-16 border-b border-border flex items-center justify-between px-4 md:px-6 bg-card">
+        {/* Sticky Header */}
+        <header className="h-16 border-b border-border flex items-center justify-between px-4 md:px-6 bg-card sticky top-0 z-10">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -60,7 +65,9 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
             >
               <Menu className="h-5 w-5" />
             </button>
-            <span className="text-sm text-muted-foreground hidden md:block">Acme Corp</span>
+            <span className="text-sm text-muted-foreground hidden md:block">
+              {isCompanyLoading ? "Loading..." : companyName || "No Company"}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <NotificationCenter />
@@ -70,16 +77,18 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
             >
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
-            <Link to="/">
-              <button className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
-                <LogOut className="h-4 w-4" />
-              </button>
-            </Link>
+            <button 
+              onClick={() => signOut()}
+              disabled={isSigningOut}
+              className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
           </div>
         </header>
 
-        {/* Content */}
-        <main className="flex-1 p-4 md:p-6 overflow-auto">
+        {/* Scrollable Content */}
+        <main className="flex-1 p-4 md:p-6">
           {children}
         </main>
       </div>

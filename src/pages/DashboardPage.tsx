@@ -17,23 +17,11 @@ interface Task {
   notes?: string;
 }
 
-const initialTasks: Task[] = [
-  { type: "Trade License Renewal", due: "2024-03-15", priority: "High", status: "Pending" },
-  { type: "VAT Filing Q1", due: "2024-03-31", priority: "Medium", status: "Pending" },
-  { type: "Employee Visa – Ahmed", due: "2024-04-02", priority: "High", status: "Pending" },
-  { type: "Insurance Renewal", due: "2024-04-10", priority: "Low", status: "Pending" },
-  { type: "Annual Audit", due: "2024-04-30", priority: "Medium", status: "Pending" },
-];
-
-const alerts = [
-  { message: "Trade License Renewal is overdue", type: "danger" as const },
-  { message: "Employee Visa expiring in 7 days – Ahmed", type: "warning" as const },
-];
-
 const DashboardPage = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [newTask, setNewTask] = useState({ type: "", due: "", priority: "", notes: "" });
+  const [loading, setLoading] = useState(true);
 
   const handleAddTask = () => {
     if (!newTask.type.trim() || !newTask.due || !newTask.priority) {
@@ -56,6 +44,13 @@ const DashboardPage = () => {
     { label: "Completed", value: completed, colorClass: "text-success" },
     { label: "Overdue", value: overdue, colorClass: "text-destructive" },
   ];
+
+  const alerts = tasks
+    .filter(t => t.status === "Overdue" || (t.status === "Pending" && new Date(t.due) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)))
+    .map(t => ({
+      message: t.status === "Overdue" ? `${t.type} is overdue` : `${t.type} expiring soon`,
+      type: t.status === "Overdue" ? "danger" as const : "warning" as const
+    }));
 
   return (
     <AppLayout>

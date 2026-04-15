@@ -1,5 +1,5 @@
 import { Navigate } from 'react-router-dom'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuthContext } from '@/contexts/AuthContext'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
@@ -12,7 +12,7 @@ export function ProtectedRoute({
   requireOnboarding = true,
   redirectTo = '/signin' 
 }: ProtectedRouteProps) {
-  const { user, loading, isOnboarded } = useAuth()
+  const { user, loading, isOnboarded } = useAuthContext()
 
   if (loading) {
     return (

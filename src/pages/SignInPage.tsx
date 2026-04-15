@@ -5,40 +5,37 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useTheme } from "@/hooks/useTheme";
 import { Sun, Moon, Loader2 } from "lucide-react";
-import { authService } from "@/lib/auth";
+import { useAuthContext } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 
 const SignInPage = () => {
   const [form, setForm] = useState({ email: "", password: "" });
-  const [loading, setLoading] = useState(false);
   const { isDark, toggle } = useTheme();
+  const { signIn, isSigningIn } = useAuthContext();
   const navigate = useNavigate();
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
 
-    const result = await authService.signIn({
-      email: form.email,
-      password: form.password
-    });
-
-    if (result.success) {
+    try {
+      await signIn({
+        email: form.email,
+        password: form.password
+      });
+      
       toast({
         title: "Welcome back",
         description: "Signing you in..."
       });
       
       // Navigation will be handled by auth state change
-    } else {
+    } catch (error: any) {
       toast({
         title: "Sign in failed",
-        description: result.error,
+        description: error.message || "An error occurred",
         variant: "destructive"
       });
     }
-
-    setLoading(false);
   };
 
   return (
@@ -64,7 +61,7 @@ const SignInPage = () => {
               placeholder="you@company.com" 
               value={form.email} 
               onChange={(e) => setForm({ ...form, email: e.target.value })} 
-              disabled={loading}
+              disabled={isSigningIn}
               required
             />
           </div>
@@ -76,12 +73,12 @@ const SignInPage = () => {
               placeholder="•••••••" 
               value={form.password} 
               onChange={(e) => setForm({ ...form, password: e.target.value })} 
-              disabled={loading}
+              disabled={isSigningIn}
               required
             />
           </div>
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          <Button type="submit" className="w-full" disabled={isSigningIn}>
+            {isSigningIn && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Sign In
           </Button>
         </form>

@@ -7,7 +7,8 @@ import {
 } from "lucide-react";
 import PublicLayout from "@/components/PublicLayout";
 import AnimatedSection from "@/components/AnimatedSection";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 const features = [
   {
@@ -170,6 +171,8 @@ const faqs = [
 
 const LandingPage = () => {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const { user, loading, isOnboarded } = useAuthContext();
+
 
   return (
     <PublicLayout>

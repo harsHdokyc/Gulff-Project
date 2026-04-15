@@ -20,27 +20,18 @@ interface Task {
   notes?: string;
 }
 
-const initialTasks: Task[] = [
-  { id: 1, type: "Trade License Renewal", due: "2024-03-15", priority: "High", status: "Overdue" },
-  { id: 2, type: "VAT Filing Q1", due: "2024-03-31", priority: "Medium", status: "Pending" },
-  { id: 3, type: "Employee Visa – Ahmed", due: "2024-04-02", priority: "High", status: "Pending" },
-  { id: 4, type: "Insurance Renewal", due: "2024-04-10", priority: "Low", status: "Pending" },
-  { id: 5, type: "Annual Audit", due: "2024-04-30", priority: "Medium", status: "Completed" },
-  { id: 6, type: "Fire Safety Certificate", due: "2024-05-15", priority: "Medium", status: "Pending" },
-  { id: 7, type: "VAT Filing Q4 2023", due: "2023-12-31", priority: "Medium", status: "Completed" },
-];
-
 const emptyForm = { type: "", due: "", priority: "", notes: "" };
 
 const CompliancePage = () => {
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("all");
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const filtered = tasks.filter((t) => {
     if (filter !== "all" && t.status.toLowerCase() !== filter) return false;
@@ -76,23 +67,23 @@ const CompliancePage = () => {
   };
 
   const openEdit = (task: Task) => {
-    setEditingTask(task);
+    setEditingId(task.id);
     setForm({ type: task.type, due: task.due, priority: task.priority, notes: task.notes || "" });
     setEditOpen(true);
   };
 
   const handleEdit = () => {
-    if (!editingTask || !form.type.trim() || !form.due || !form.priority) {
+    if (!editingId || !form.type.trim() || !form.due || !form.priority) {
       toast({ title: "Missing fields", description: "Please fill in all required fields.", variant: "destructive" });
       return;
     }
     setTasks((prev) =>
       prev.map((t) =>
-        t.id === editingTask.id ? { ...t, type: form.type.trim(), due: form.due, priority: form.priority, notes: form.notes } : t
+        t.id === editingId ? { ...t, type: form.type.trim(), due: form.due, priority: form.priority, notes: form.notes } : t
       )
     );
     setEditOpen(false);
-    setEditingTask(null);
+    setEditingId(null);
     setForm(emptyForm);
     toast({ title: "Task updated", description: "Changes have been saved." });
   };
@@ -240,7 +231,7 @@ const CompliancePage = () => {
         </div>
 
         {/* Edit Dialog */}
-        <Dialog open={editOpen} onOpenChange={(o) => { setEditOpen(o); if (!o) { setEditingTask(null); setForm(emptyForm); } }}>
+        <Dialog open={editOpen} onOpenChange={(o) => { setEditOpen(o); if (!o) { setEditingId(null); setForm(emptyForm); } }}>
           <DialogContent>
             <DialogHeader><DialogTitle>Edit Task</DialogTitle></DialogHeader>
             <TaskForm onSubmit={handleEdit} submitLabel="Save Changes" />
