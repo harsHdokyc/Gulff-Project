@@ -36,10 +36,27 @@ const SettingsPage = () => {
 
   const fetchCompanyData = async () => {
     try {
+      // Use the get_user_company function to get the company ID efficiently
+      const { data: companyId, error: idError } = await supabase
+        .rpc('get_user_company');
+
+      if (idError) throw idError;
+      if (!companyId) {
+        // User doesn't have a company, show onboarding message
+        setCompanyData(null);
+        toast({
+          title: "No Company Data",
+          description: "Please complete onboarding first",
+          variant: "destructive"
+        });
+        setLoading(false);
+        return;
+      }
+      
       const { data, error } = await supabase
         .from('companies')
         .select('*')
-        .eq('user_id', user?.id)
+        .eq('id', companyId)
         .limit(1);
 
       if (error) throw error;

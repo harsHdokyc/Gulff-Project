@@ -9,6 +9,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { Sun, Moon, Loader2 } from "lucide-react";
 import { onboardingService } from "@/lib/onboarding";
 import { toast } from "@/hooks/use-toast";
+import { validateAlphabeticText, isValidAlphabeticInput, validateAlphanumericText, isValidAlphanumericInput } from "@/lib/formValidation";
 
 const OnboardingPage = () => {
   const [step, setStep] = useState(1);
@@ -262,11 +263,31 @@ const OnboardingPage = () => {
             <div className="mt-6 space-y-4">
               <div className="space-y-2">
                 <Label>Company Name *</Label>
-                <Input placeholder="Acme Corp" value={companyName} onChange={(e) => setCompanyName(e.target.value)} disabled={loading} />
+                <Input 
+                  placeholder="Acme Corp" 
+                  value={companyName} 
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (isValidAlphanumericInput(value)) {
+                      setCompanyName(validateAlphanumericText(value));
+                    }
+                  }} 
+                  disabled={loading} 
+                />
               </div>
               <div className="space-y-2">
                 <Label>Owner/Manager Name *</Label>
-                <Input placeholder="John Doe" value={ownerName} onChange={(e) => setOwnerName(e.target.value)} disabled={loading} />
+                <Input 
+                  placeholder="John Doe" 
+                  value={ownerName} 
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (isValidAlphabeticInput(value)) {
+                      setOwnerName(validateAlphabeticText(value));
+                    }
+                  }} 
+                  disabled={loading} 
+                />
               </div>
               <div className="space-y-2">
                 <Label>WhatsApp Contact Number *</Label>

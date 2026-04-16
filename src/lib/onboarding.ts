@@ -37,24 +37,21 @@ export class OnboardingService {
   // Create company record
   async createCompany(userId: string, data: CompanyData): Promise<{ success: boolean; error?: string; companyId?: string }> {
     try {
+      // Use the new safe function that avoids RLS recursion
       const { data: companyData, error } = await supabase
-        .from('companies')
-        .insert({
-          user_id: userId,
-          name: data.name,
+        .rpc('create_company_with_user_link', {
+          company_name: data.name,
           business_type: data.business_type,
           employee_count: data.employee_count,
           owner_name: data.owner_name,
           whatsapp: data.whatsapp
         })
-        .select('id')
-        .single()
 
       if (error) {
         return { success: false, error: error.message }
       }
 
-      return { success: true, companyId: companyData.id }
+      return { success: true, companyId: companyData }
     } catch (error) {
       return { success: false, error: 'Failed to create company' }
     }

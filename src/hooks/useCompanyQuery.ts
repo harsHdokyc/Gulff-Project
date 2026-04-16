@@ -15,10 +15,17 @@ export function useCompanyName(userId?: string) {
     queryFn: async () => {
       if (!userId) return null;
       
+      // Use the get_user_company function to get the company ID efficiently
+      const { data: companyId, error: idError } = await supabase
+        .rpc('get_user_company');
+
+      if (idError) throw idError;
+      if (!companyId) return null;
+      
       const { data, error } = await supabase
         .from('companies')
         .select('name')
-        .eq('user_id', userId)
+        .eq('id', companyId)
         .limit(1)
         .single();
 
@@ -32,6 +39,7 @@ export function useCompanyName(userId?: string) {
   });
 }
 
+
 // Hook to get full company data
 export function useCompany(userId?: string) {
   return useQuery({
@@ -39,10 +47,17 @@ export function useCompany(userId?: string) {
     queryFn: async () => {
       if (!userId) return null;
       
+      // Use the get_user_company function to get the company ID efficiently
+      const { data: companyId, error: idError } = await supabase
+        .rpc('get_user_company');
+
+      if (idError) throw idError;
+      if (!companyId) return null;
+      
       const { data, error } = await supabase
         .from('companies')
         .select('*')
-        .eq('user_id', userId)
+        .eq('id', companyId)
         .limit(1)
         .single();
 
