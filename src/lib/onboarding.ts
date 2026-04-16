@@ -60,6 +60,30 @@ export class OnboardingService {
     }
   }
 
+  // Update company info
+  async updateCompanyInfo(companyId: string, data: Partial<CompanyData>): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { error } = await supabase
+        .from('companies')
+        .update({
+          ...(data.employee_count && { employee_count: data.employee_count }),
+          ...(data.name && { name: data.name }),
+          ...(data.business_type && { business_type: data.business_type }),
+          ...(data.owner_name && { owner_name: data.owner_name }),
+          ...(data.whatsapp && { whatsapp: data.whatsapp })
+        })
+        .eq('id', companyId)
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: 'Failed to update company info' }
+    }
+  }
+
   // Update company compliance info
   async updateComplianceInfo(companyId: string, data: ComplianceData): Promise<{ success: boolean; error?: string }> {
     try {

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
+import { validateAlphabeticText, isValidAlphabeticInput } from "@/lib/formValidation";
 
 interface Task {
   type: string;
@@ -21,11 +22,31 @@ const DashboardPage = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTask, setNewTask] = useState({ type: "", due: "", priority: "", notes: "" });
+  const [errors, setErrors] = useState<{ type?: string; due?: string; priority?: string }>({});
   const [loading, setLoading] = useState(true);
 
+  const validateForm = () => {
+    const newErrors: { type?: string; due?: string; priority?: string } = {};
+    
+    if (!newTask.type.trim()) {
+      newErrors.type = "Task type is required";
+    }
+    
+    if (!newTask.due) {
+      newErrors.due = "Due date is required";
+    }
+    
+    if (!newTask.priority) {
+      newErrors.priority = "Priority is required";
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleAddTask = () => {
-    if (!newTask.type.trim() || !newTask.due || !newTask.priority) {
-      toast({ title: "Missing fields", description: "Please fill in task type, due date, and priority.", variant: "destructive" });
+    if (!validateForm()) {
+      toast({ title: "Validation Error", description: "Please fill in all required fields.", variant: "destructive" });
       return;
     }
     setTasks((prev) => [...prev, { ...newTask, status: "Pending" }]);
@@ -70,32 +91,60 @@ const DashboardPage = () => {
               </DialogHeader>
               <div className="space-y-4 mt-2">
                 <div className="space-y-2">
-                  <Label>Task Type</Label>
+                  <Label className="flex items-center gap-1">
+                    Task Type <span className="text-destructive">*</span>
+                  </Label>
                   <Input
                     placeholder="e.g., Trade License Renewal"
                     value={newTask.type}
-                    onChange={(e) => setNewTask((p) => ({ ...p, type: e.target.value }))}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (isValidAlphabeticInput(value)) {
+                        setNewTask((p) => ({ ...p, type: validateAlphabeticText(value) }));
+                        if (errors.type) setErrors((p) => ({ ...p, type: undefined }));
+                      }
+                    }}
                     maxLength={100}
+                    className={errors.type ? "border-destructive" : ""}
                   />
+                  {errors.type && <p className="text-xs text-destructive">{errors.type}</p>}
                 </div>
                 <div className="space-y-2">
-                  <Label>Due Date</Label>
+                  <Label className="flex items-center gap-1">
+                    Due Date <span className="text-destructive">*</span>
+                  </Label>
                   <Input
                     type="date"
                     value={newTask.due}
-                    onChange={(e) => setNewTask((p) => ({ ...p, due: e.target.value }))}
+                    onChange={(e) => {
+                      setNewTask((p) => ({ ...p, due: e.target.value }));
+                      if (errors.due) setErrors((p) => ({ ...p, due: undefined }));
+                    }}
+                    className={errors.due ? "border-destructive" : ""}
                   />
+                  {errors.due && <p className="text-xs text-destructive">{errors.due}</p>}
                 </div>
                 <div className="space-y-2">
-                  <Label>Priority</Label>
-                  <Select value={newTask.priority} onValueChange={(v) => setNewTask((p) => ({ ...p, priority: v }))}>
-                    <SelectTrigger><SelectValue placeholder="Select priority" /></SelectTrigger>
+                  <Label className="flex items-center gap-1">
+                    Priority <span className="text-destructive">*</span>
+                  </Label>
+                  <Select 
+                    value={newTask.priority} 
+                    onValueChange={(v) => {
+                      setNewTask((p) => ({ ...p, priority: v }));
+                      if (errors.priority) setErrors((p) => ({ ...p, priority: undefined }));
+                    }}
+                  >
+                    <SelectTrigger className={errors.priority ? "border-destructive" : ""}>
+                      <SelectValue placeholder="Select priority" />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="High">High</SelectItem>
                       <SelectItem value="Medium">Medium</SelectItem>
                       <SelectItem value="Low">Low</SelectItem>
                     </SelectContent>
                   </Select>
+                  {errors.priority && <p className="text-xs text-destructive">{errors.priority}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label>Notes</Label>

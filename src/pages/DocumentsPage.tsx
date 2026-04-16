@@ -36,6 +36,106 @@ const docTypeLabels: Record<string, string> = {
 
 const emptyForm = { name: "", type: "", expiry: "", fileName: "" };
 
+interface DocFormProps {
+  form: typeof emptyForm;
+  setForm: React.Dispatch<React.SetStateAction<typeof emptyForm>>;
+  onSubmit: () => void;
+  label: string;
+  errors?: { name?: string; type?: string; expiry?: string; file?: string };
+  onFieldChange?: (field: string) => void;
+  selectedFile?: File | null;
+  setSelectedFile?: React.Dispatch<React.SetStateAction<File | null>>;
+}
+
+const DocForm = ({ form, setForm, onSubmit, label, errors = {}, onFieldChange, selectedFile, setSelectedFile }: DocFormProps) => (
+  <div className="space-y-4 mt-2">
+    <div className="space-y-2">
+      <Label className="flex items-center gap-1">
+        Document Name <span className="text-destructive">*</span>
+      </Label>
+      <Input 
+        placeholder="e.g., Trade License 2025" 
+        value={form.name} 
+        onChange={(e) => {
+          setForm((p) => ({ ...p, name: e.target.value }));
+          onFieldChange?.('name');
+        }} 
+        maxLength={100} 
+        className={errors.name ? "border-destructive" : ""}
+      />
+      {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
+    </div>
+    <div className="space-y-2">
+      <Label className="flex items-center gap-1">
+        Document Type <span className="text-destructive">*</span>
+      </Label>
+      <Select 
+        value={form.type} 
+        onValueChange={(v) => {
+          setForm((p) => ({ ...p, type: v }));
+          onFieldChange?.('type');
+        }}
+      >
+        <SelectTrigger className={errors.type ? "border-destructive" : ""}>
+          <SelectValue placeholder="Select type" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="trade-license">Trade License</SelectItem>
+          <SelectItem value="vat-certificate">VAT Certificate</SelectItem>
+          <SelectItem value="insurance">Insurance Policy</SelectItem>
+          <SelectItem value="lease">Lease Agreement</SelectItem>
+          <SelectItem value="other">Other</SelectItem>
+        </SelectContent>
+      </Select>
+      {errors.type && <p className="text-xs text-destructive">{errors.type}</p>}
+    </div>
+    <div className="space-y-2">
+      <Label className="flex items-center gap-1">
+        Expiry Date <span className="text-destructive">*</span>
+      </Label>
+      <Input 
+        type="date" 
+        value={form.expiry} 
+        onChange={(e) => {
+          setForm((p) => ({ ...p, expiry: e.target.value }));
+          onFieldChange?.('expiry');
+        }}
+        className={errors.expiry ? "border-destructive" : ""}
+      />
+      {errors.expiry && <p className="text-xs text-destructive">{errors.expiry}</p>}
+    </div>
+    {label === "Upload Document" && (
+      <div className="space-y-2">
+        <Label className="flex items-center gap-1">
+          File <span className="text-destructive">*</span>
+        </Label>
+        <div className={`rounded-md border border-dashed p-6 text-center ${errors.file ? "border-destructive" : "border-border"}`}>
+          {selectedFile ? (
+            <p className="text-sm text-foreground">{selectedFile.name}</p>
+          ) : (
+            <p className="text-sm text-muted-foreground">Drag & drop or click to browse</p>
+          )}
+          <input
+            type="file"
+            className="hidden"
+            id="doc-file-input"
+            onChange={(e) => {
+              setSelectedFile?.(e.target.files?.[0] || null);
+              onFieldChange?.('file');
+            }}
+            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+          />
+          <Button variant="outline" size="sm" className="mt-2" onClick={() => document.getElementById("doc-file-input")?.click()}>
+            Browse
+          </Button>
+        </div>
+        {errors.file && <p className="text-xs text-destructive">{errors.file}</p>}
+      </div>
+    )}
+    <Button className="w-full" onClick={onSubmit}>{label}</Button>
+  </div>
+);
+
 const DocumentsPage = () => {
   const [docs, setDocs] = useState<Doc[]>([]);
   const [addOpen, setAddOpen] = useState(false);
@@ -43,6 +143,7 @@ const DocumentsPage = () => {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [form, setForm] = useState(emptyForm);
+  const [errors, setErrors] = useState<{ name?: string; type?: string; expiry?: string; file?: string }>({});
   const [editingId, setEditingId] = useState<number | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
@@ -52,12 +153,35 @@ const DocumentsPage = () => {
     return true;
   });
 
+  const validateForm = (isUpload: boolean = false) => {
+    const newErrors: { name?: string; type?: string; expiry?: string; file?: string } = {};
+    
+    if (!form.name.trim()) {
+      newErrors.name = "Document name is required";
+    }
+    
+    if (!form.type) {
+      newErrors.type = "Document type is required";
+    }
+    
+    if (!form.expiry) {
+      newErrors.expiry = "Expiry date is required";
+    }
+    
+    if (isUpload && !selectedFile) {
+      newErrors.file = "File is required";
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleAdd = () => {
-    if (!form.type || !form.expiry) {
-      toast({ title: "Missing fields", description: "Please select document type and expiry date.", variant: "destructive" });
+    if (!validateForm(true)) {
+      toast({ title: "Validation Error", description: "Please fill in all required fields.", variant: "destructive" });
       return;
     }
-    const docName = form.name.trim() || docTypeLabels[form.type] || "Untitled Document";
+    const docName = form.name.trim();
     const newDoc: Doc = {
       id: Date.now(),
       name: docName,
@@ -80,11 +204,11 @@ const DocumentsPage = () => {
   };
 
   const handleEdit = () => {
-    if (!form.type || !form.expiry) {
-      toast({ title: "Missing fields", description: "Please fill in required fields.", variant: "destructive" });
+    if (!editingId || !validateForm(false)) {
+      toast({ title: "Validation Error", description: "Please fill in all required fields.", variant: "destructive" });
       return;
     }
-    const docName = form.name.trim() || docTypeLabels[form.type] || "Untitled Document";
+    const docName = form.name.trim();
     setDocs((prev) =>
       prev.map((d) =>
         d.id === editingId ? { ...d, name: docName, type: form.type, expiry: form.expiry, status: computeDocStatus(form.expiry) } : d
@@ -101,54 +225,11 @@ const DocumentsPage = () => {
     toast({ title: "Document deleted" });
   };
 
-  const DocForm = ({ onSubmit, label }: { onSubmit: () => void; label: string }) => (
-    <div className="space-y-4 mt-2">
-      <div className="space-y-2">
-        <Label>Document Name (optional)</Label>
-        <Input placeholder="e.g., Trade License 2025" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} maxLength={100} />
-      </div>
-      <div className="space-y-2">
-        <Label>Document Type</Label>
-        <Select value={form.type} onValueChange={(v) => setForm((p) => ({ ...p, type: v }))}>
-          <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="trade-license">Trade License</SelectItem>
-            <SelectItem value="vat-certificate">VAT Certificate</SelectItem>
-            <SelectItem value="insurance">Insurance Policy</SelectItem>
-            <SelectItem value="lease">Lease Agreement</SelectItem>
-            <SelectItem value="other">Other</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-2">
-        <Label>Expiry Date</Label>
-        <Input type="date" value={form.expiry} onChange={(e) => setForm((p) => ({ ...p, expiry: e.target.value }))} />
-      </div>
-      {label === "Upload Document" && (
-        <div className="space-y-2">
-          <Label>File</Label>
-          <div className="rounded-md border border-border border-dashed p-6 text-center">
-            {selectedFile ? (
-              <p className="text-sm text-foreground">{selectedFile.name}</p>
-            ) : (
-              <p className="text-sm text-muted-foreground">Drag & drop or click to browse</p>
-            )}
-            <input
-              type="file"
-              className="hidden"
-              id="doc-file-input"
-              onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-            />
-            <Button variant="outline" size="sm" className="mt-2" onClick={() => document.getElementById("doc-file-input")?.click()}>
-              Browse
-            </Button>
-          </div>
-        </div>
-      )}
-      <Button className="w-full" onClick={onSubmit}>{label}</Button>
-    </div>
-  );
+  const clearFieldError = (field: string) => {
+    if (errors[field as keyof typeof errors]) {
+      setErrors((p) => ({ ...p, [field]: undefined }));
+    }
+  };
 
   return (
     <AppLayout>
@@ -161,7 +242,7 @@ const DocumentsPage = () => {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>Upload Document</DialogTitle></DialogHeader>
-              <DocForm onSubmit={handleAdd} label="Upload Document" />
+              <DocForm form={form} setForm={setForm} onSubmit={handleAdd} label="Upload Document" errors={errors} onFieldChange={clearFieldError} selectedFile={selectedFile} setSelectedFile={setSelectedFile} />
             </DialogContent>
           </Dialog>
         </div>
@@ -237,7 +318,7 @@ const DocumentsPage = () => {
         <Dialog open={editOpen} onOpenChange={(o) => { setEditOpen(o); if (!o) { setEditingId(null); setForm(emptyForm); } }}>
           <DialogContent>
             <DialogHeader><DialogTitle>Edit Document</DialogTitle></DialogHeader>
-            <DocForm onSubmit={handleEdit} label="Save Changes" />
+            <DocForm form={form} setForm={setForm} onSubmit={handleEdit} label="Save Changes" errors={errors} onFieldChange={clearFieldError} />
           </DialogContent>
         </Dialog>
       </div>

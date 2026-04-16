@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +22,6 @@ const OnboardingPage = () => {
   // Step 1
   const [companyName, setCompanyName] = useState("");
   const [businessType, setBusinessType] = useState("");
-  const [employeeCount, setEmployeeCount] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [countryCode, setCountryCode] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -34,9 +33,12 @@ const OnboardingPage = () => {
   // Step 3
   const [employeeName, setEmployeeName] = useState("");
   const [employeeSalary, setEmployeeSalary] = useState("");
+  const [employeeCount, setEmployeeCount] = useState("");
 
   // Step 4 (simplified)
-  const [tradeLicenseDoc, setTradeLicenseDoc] = useState("");
+  const [tradeLicenseDoc, setTradeLicenseDoc] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Check if user should be here
   useEffect(() => {
@@ -49,7 +51,7 @@ const OnboardingPage = () => {
     if (step < totalSteps) {
       // Validate current step before proceeding
       if (step === 1) {
-        if (!companyName || !businessType || !employeeCount || !ownerName || !countryCode || !phoneNumber) {
+        if (!companyName || !businessType || !ownerName || !countryCode || !phoneNumber) {
           toast({
             title: "Missing Information",
             description: "Please fill in all required fields.",
@@ -63,7 +65,7 @@ const OnboardingPage = () => {
         const result = await onboardingService.createCompany(user!.id, {
           name: companyName,
           business_type: businessType,
-          employee_count: employeeCount,
+          employee_count: "", // Will be updated in step 3
           owner_name: ownerName,
           whatsapp: `${countryCode}${phoneNumber}`
         });
@@ -79,6 +81,16 @@ const OnboardingPage = () => {
           });
         }
         setLoading(false);
+      } else if (step === 3) {
+        if (!employeeCount) {
+          toast({
+            title: "Missing Information",
+            description: "Please select employee count.",
+            variant: "destructive"
+          });
+          return;
+        }
+        setStep(step + 1);
       } else {
         setStep(step + 1);
       }
@@ -87,6 +99,37 @@ const OnboardingPage = () => {
 
   const prev = () => {
     if (step > 1) setStep(step - 1);
+  };
+
+  const handleFileSelect = (files: FileList | null) => {
+    if (files && files.length > 0) {
+      const file = files[0];
+      // Check if file is PDF only
+      if (file.type === 'application/pdf') {
+        setTradeLicenseDoc(file);
+      } else {
+        toast({
+          title: "Invalid File Type",
+          description: "Please upload a PDF file only.",
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    handleFileSelect(e.dataTransfer.files);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
   };
 
   const handleCompleteOnboarding = async () => {
@@ -130,14 +173,32 @@ const OnboardingPage = () => {
     
     // Upload documents if provided
     if (tradeLicenseDoc) {
+      // For now, just store the file name. In production, you'd upload to storage service
       const docResult = await onboardingService.uploadDocuments(companyId, {
-        trade_license_path: tradeLicenseDoc
+        trade_license_path: tradeLicenseDoc.name
       });
       
       if (!docResult.success) {
         toast({
           title: "Error",
           description: docResult.error,
+          variant: "destructive"
+        });
+        setLoading(false);
+        return;
+      }
+    }
+    
+    // Update company with employee count before completing onboarding
+    if (employeeCount && companyId) {
+      const updateResult = await onboardingService.updateCompanyInfo(companyId, {
+        employee_count: employeeCount
+      });
+      
+      if (!updateResult.success) {
+        toast({
+          title: "Error",
+          description: updateResult.error,
           variant: "destructive"
         });
         setLoading(false);
@@ -248,18 +309,6 @@ const OnboardingPage = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>Employee Count *</Label>
-                <Select value={employeeCount} onValueChange={setEmployeeCount} disabled={loading}>
-                  <SelectTrigger><SelectValue placeholder="Select range" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1-5">1-5</SelectItem>
-                    <SelectItem value="5-15">5-15</SelectItem>
-                    <SelectItem value="15-50">15-50</SelectItem>
-                    <SelectItem value="50+">50+</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
           </div>
         )}
@@ -286,8 +335,20 @@ const OnboardingPage = () => {
         {step === 3 && (
           <div className="animate-fade-in">
             <h2 className="font-heading text-xl font-semibold text-foreground">Employees</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Add your first employee.</p>
+            <p className="mt-1 text-sm text-muted-foreground">Add your first employee and company size.</p>
             <div className="mt-6 space-y-4">
+              <div className="space-y-2">
+                <Label>Employee Count *</Label>
+                <Select value={employeeCount} onValueChange={setEmployeeCount} disabled={loading}>
+                  <SelectTrigger><SelectValue placeholder="Select range" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1-5">1-5</SelectItem>
+                    <SelectItem value="5-15">5-15</SelectItem>
+                    <SelectItem value="15-50">15-50</SelectItem>
+                    <SelectItem value="50+">50+</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-2">
                 <Label>Employee Name (optional)</Label>
                 <Input placeholder="Employee name" value={employeeName} onChange={(e) => setEmployeeName(e.target.value)} disabled={loading} />
@@ -306,9 +367,35 @@ const OnboardingPage = () => {
             <h2 className="font-heading text-xl font-semibold text-foreground">Upload Key Documents</h2>
             <p className="mt-1 text-sm text-muted-foreground">Upload your trade license and other documents.</p>
             <div className="mt-6 space-y-4">
-              <div className="rounded-md border border-border border-dashed p-8 text-center">
-                <p className="text-sm text-muted-foreground">Drag & drop your trade license here, or click to browse</p>
-                <Button variant="outline" size="sm" className="mt-3" disabled={loading}>Browse Files</Button>
+              <div 
+                className={`rounded-md border-2 border-dashed p-8 text-center transition-colors cursor-pointer ${
+                  isDragging 
+                    ? 'border-primary bg-primary/5' 
+                    : 'border-border hover:border-primary/50'
+                }`}
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  onChange={(e) => handleFileSelect(e.target.files)}
+                  className="hidden"
+                />
+                {tradeLicenseDoc ? (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-foreground">{tradeLicenseDoc.name}</p>
+                    <p className="text-xs text-muted-foreground">Click or drag to replace</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">Drag & drop your trade license here, or click to browse</p>
+                    <Button variant="outline" size="sm" type="button" disabled={loading}>Browse Files</Button>
+                  </div>
+                )}
               </div>
             </div>
           </div>

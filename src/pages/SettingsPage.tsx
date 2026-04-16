@@ -7,6 +7,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { validateAlphabeticText, isValidAlphabeticInput } from "@/lib/formValidation";
 
 interface CompanyData {
   id: string;
@@ -138,7 +139,12 @@ const SettingsPage = () => {
                   <Label>Company Name</Label>
                   <Input 
                     value={companyData.name}
-                    onChange={(e) => setCompanyData({...companyData, name: e.target.value})}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (isValidAlphabeticInput(value)) {
+                        setCompanyData({...companyData, name: validateAlphabeticText(value)});
+                      }
+                    }}
                     placeholder="Enter company name"
                   />
                 </div>
@@ -146,7 +152,12 @@ const SettingsPage = () => {
                   <Label>Business Type</Label>
                   <Input 
                     value={companyData.business_type}
-                    onChange={(e) => setCompanyData({...companyData, business_type: e.target.value})}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (isValidAlphabeticInput(value)) {
+                        setCompanyData({...companyData, business_type: validateAlphabeticText(value)});
+                      }
+                    }}
                     placeholder="Enter business type"
                   />
                 </div>
@@ -162,7 +173,12 @@ const SettingsPage = () => {
                   <Label>Owner Name</Label>
                   <Input 
                     value={companyData.owner_name}
-                    onChange={(e) => setCompanyData({...companyData, owner_name: e.target.value})}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (isValidAlphabeticInput(value)) {
+                        setCompanyData({...companyData, owner_name: validateAlphabeticText(value)});
+                      }
+                    }}
                     placeholder="Enter owner name"
                   />
                 </div>

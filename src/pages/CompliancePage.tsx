@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
+import { validateAlphabeticText, isValidAlphabeticInput } from "@/lib/formValidation";
 
 type Filter = "all" | "pending" | "completed" | "overdue";
 
@@ -22,6 +23,86 @@ interface Task {
 
 const emptyForm = { type: "", due: "", priority: "", notes: "" };
 
+interface TaskFormProps {
+  form: typeof emptyForm;
+  setForm: React.Dispatch<React.SetStateAction<typeof emptyForm>>;
+  onSubmit: () => void;
+  submitLabel: string;
+  errors?: { type?: string; due?: string; priority?: string };
+  onFieldChange?: (field: string) => void;
+}
+
+const TaskForm = ({ form, setForm, onSubmit, submitLabel, errors = {}, onFieldChange }: TaskFormProps) => (
+  <div className="space-y-4 mt-2">
+    <div className="space-y-2">
+      <Label className="flex items-center gap-1">
+        Task Type <span className="text-destructive">*</span>
+      </Label>
+      <Input 
+        placeholder="e.g., Trade License Renewal" 
+        value={form.type} 
+        onChange={(e) => {
+          const value = e.target.value;
+          if (isValidAlphabeticInput(value)) {
+            setForm((p) => ({ ...p, type: validateAlphabeticText(value) }));
+            onFieldChange?.('type');
+          }
+        }} 
+        maxLength={100} 
+        className={errors.type ? "border-destructive" : ""}
+      />
+      {errors.type && <p className="text-xs text-destructive">{errors.type}</p>}
+    </div>
+    <div className="space-y-2">
+      <Label className="flex items-center gap-1">
+        Due Date <span className="text-destructive">*</span>
+      </Label>
+      <Input 
+        type="date" 
+        value={form.due} 
+        onChange={(e) => {
+          setForm((p) => ({ ...p, due: e.target.value }));
+          onFieldChange?.('due');
+        }}
+        className={errors.due ? "border-destructive" : ""}
+      />
+      {errors.due && <p className="text-xs text-destructive">{errors.due}</p>}
+    </div>
+    <div className="space-y-2">
+      <Label className="flex items-center gap-1">
+        Priority <span className="text-destructive">*</span>
+      </Label>
+      <Select 
+        value={form.priority} 
+        onValueChange={(v) => {
+          setForm((p) => ({ ...p, priority: v }));
+          onFieldChange?.('priority');
+        }}
+      >
+        <SelectTrigger className={errors.priority ? "border-destructive" : ""}>
+          <SelectValue placeholder="Select priority" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="High">High</SelectItem>
+          <SelectItem value="Medium">Medium</SelectItem>
+          <SelectItem value="Low">Low</SelectItem>
+        </SelectContent>
+      </Select>
+      {errors.priority && <p className="text-xs text-destructive">{errors.priority}</p>}
+    </div>
+    <div className="space-y-2">
+      <Label>Notes</Label>
+      <Textarea 
+        placeholder="Additional notes..." 
+        value={form.notes} 
+        onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} 
+        maxLength={500} 
+      />
+    </div>
+    <Button className="w-full" onClick={onSubmit}>{submitLabel}</Button>
+  </div>
+);
+
 const CompliancePage = () => {
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
@@ -30,6 +111,7 @@ const CompliancePage = () => {
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  const [errors, setErrors] = useState<{ type?: string; due?: string; priority?: string }>({});
   const [editingId, setEditingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -47,9 +129,28 @@ const CompliancePage = () => {
     { label: "Overdue", value: "overdue" },
   ];
 
+  const validateForm = () => {
+    const newErrors: { type?: string; due?: string; priority?: string } = {};
+    
+    if (!form.type.trim()) {
+      newErrors.type = "Task type is required";
+    }
+    
+    if (!form.due) {
+      newErrors.due = "Due date is required";
+    }
+    
+    if (!form.priority) {
+      newErrors.priority = "Priority is required";
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleAdd = () => {
-    if (!form.type.trim() || !form.due || !form.priority) {
-      toast({ title: "Missing fields", description: "Please fill in all required fields.", variant: "destructive" });
+    if (!validateForm()) {
+      toast({ title: "Validation Error", description: "Please fill in all required fields.", variant: "destructive" });
       return;
     }
     const newTask: Task = {
@@ -73,8 +174,8 @@ const CompliancePage = () => {
   };
 
   const handleEdit = () => {
-    if (!editingId || !form.type.trim() || !form.due || !form.priority) {
-      toast({ title: "Missing fields", description: "Please fill in all required fields.", variant: "destructive" });
+    if (!editingId || !validateForm()) {
+      toast({ title: "Validation Error", description: "Please fill in all required fields.", variant: "destructive" });
       return;
     }
     setTasks((prev) =>
@@ -93,40 +194,18 @@ const CompliancePage = () => {
     toast({ title: "Task completed" });
   };
 
+  const clearFieldError = (field: string) => {
+    if (errors[field as keyof typeof errors]) {
+      setErrors((p) => ({ ...p, [field]: undefined }));
+    }
+  };
+
   const deleteTask = (id: number) => {
     setTasks((prev) => prev.filter((t) => t.id !== id));
     toast({ title: "Task deleted" });
   };
 
-  const TaskForm = ({ onSubmit, submitLabel }: { onSubmit: () => void; submitLabel: string }) => (
-    <div className="space-y-4 mt-2">
-      <div className="space-y-2">
-        <Label>Task Type</Label>
-        <Input placeholder="e.g., Trade License Renewal" value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))} maxLength={100} />
-      </div>
-      <div className="space-y-2">
-        <Label>Due Date</Label>
-        <Input type="date" value={form.due} onChange={(e) => setForm((p) => ({ ...p, due: e.target.value }))} />
-      </div>
-      <div className="space-y-2">
-        <Label>Priority</Label>
-        <Select value={form.priority} onValueChange={(v) => setForm((p) => ({ ...p, priority: v }))}>
-          <SelectTrigger><SelectValue placeholder="Select priority" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="High">High</SelectItem>
-            <SelectItem value="Medium">Medium</SelectItem>
-            <SelectItem value="Low">Low</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-2">
-        <Label>Notes</Label>
-        <Textarea placeholder="Additional notes..." value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} maxLength={500} />
-      </div>
-      <Button className="w-full" onClick={onSubmit}>{submitLabel}</Button>
-    </div>
-  );
-
+  
   return (
     <AppLayout>
       <div className="max-w-5xl mx-auto animate-fade-in">
@@ -138,7 +217,7 @@ const CompliancePage = () => {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>Add Compliance Task</DialogTitle></DialogHeader>
-              <TaskForm onSubmit={handleAdd} submitLabel="Add Task" />
+              <TaskForm form={form} setForm={setForm} onSubmit={handleAdd} submitLabel="Add Task" errors={errors} onFieldChange={clearFieldError} />
             </DialogContent>
           </Dialog>
         </div>
@@ -234,7 +313,7 @@ const CompliancePage = () => {
         <Dialog open={editOpen} onOpenChange={(o) => { setEditOpen(o); if (!o) { setEditingId(null); setForm(emptyForm); } }}>
           <DialogContent>
             <DialogHeader><DialogTitle>Edit Task</DialogTitle></DialogHeader>
-            <TaskForm onSubmit={handleEdit} submitLabel="Save Changes" />
+            <TaskForm form={form} setForm={setForm} onSubmit={handleEdit} submitLabel="Save Changes" errors={errors} onFieldChange={clearFieldError} />
           </DialogContent>
         </Dialog>
       </div>

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
+import { validateAlphabeticText, isValidAlphabeticInput } from "@/lib/formValidation";
 
 interface Employee {
   id: number;
@@ -29,6 +30,70 @@ const computeStatus = (visaExpiry: string, emiratesIdExpiry: string): string => 
 
 const emptyForm = { name: "", visaExpiry: "", emiratesIdExpiry: "" };
 
+interface EmpFormProps {
+  form: typeof emptyForm;
+  setForm: React.Dispatch<React.SetStateAction<typeof emptyForm>>;
+  onSubmit: () => void;
+  label: string;
+  errors?: { name?: string; visaExpiry?: string; emiratesIdExpiry?: string };
+  onFieldChange?: (field: string) => void;
+}
+
+const EmpForm = ({ form, setForm, onSubmit, label, errors = {}, onFieldChange }: EmpFormProps) => (
+  <div className="space-y-4 mt-2">
+    <div className="space-y-2">
+      <Label className="flex items-center gap-1">
+        Employee Name <span className="text-destructive">*</span>
+      </Label>
+      <Input 
+        placeholder="Full name" 
+        value={form.name} 
+        onChange={(e) => {
+          const value = e.target.value;
+          if (isValidAlphabeticInput(value)) {
+            setForm((p) => ({ ...p, name: validateAlphabeticText(value) }));
+            onFieldChange?.('name');
+          }
+        }} 
+        maxLength={100} 
+        className={errors.name ? "border-destructive" : ""}
+      />
+      {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
+    </div>
+    <div className="space-y-2">
+      <Label className="flex items-center gap-1">
+        Visa Expiry Date <span className="text-destructive">*</span>
+      </Label>
+      <Input 
+        type="date" 
+        value={form.visaExpiry} 
+        onChange={(e) => {
+          setForm((p) => ({ ...p, visaExpiry: e.target.value }));
+          onFieldChange?.('visaExpiry');
+        }}
+        className={errors.visaExpiry ? "border-destructive" : ""}
+      />
+      {errors.visaExpiry && <p className="text-xs text-destructive">{errors.visaExpiry}</p>}
+    </div>
+    <div className="space-y-2">
+      <Label className="flex items-center gap-1">
+        Emirates ID Expiry Date <span className="text-destructive">*</span>
+      </Label>
+      <Input 
+        type="date" 
+        value={form.emiratesIdExpiry} 
+        onChange={(e) => {
+          setForm((p) => ({ ...p, emiratesIdExpiry: e.target.value }));
+          onFieldChange?.('emiratesIdExpiry');
+        }}
+        className={errors.emiratesIdExpiry ? "border-destructive" : ""}
+      />
+      {errors.emiratesIdExpiry && <p className="text-xs text-destructive">{errors.emiratesIdExpiry}</p>}
+    </div>
+    <Button className="w-full" onClick={onSubmit}>{label}</Button>
+  </div>
+);
+
 const EmployeesPage = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [addOpen, setAddOpen] = useState(false);
@@ -37,6 +102,7 @@ const EmployeesPage = () => {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
   const [form, setForm] = useState(emptyForm);
+  const [errors, setErrors] = useState<{ name?: string; visaExpiry?: string; emiratesIdExpiry?: string }>({});
   const [editingId, setEditingId] = useState<number | null>(null);
 
   const filtered = employees.filter((emp) => {
@@ -45,9 +111,28 @@ const EmployeesPage = () => {
     return true;
   });
 
+  const validateForm = () => {
+    const newErrors: { name?: string; visaExpiry?: string; emiratesIdExpiry?: string } = {};
+    
+    if (!form.name.trim()) {
+      newErrors.name = "Employee name is required";
+    }
+    
+    if (!form.visaExpiry) {
+      newErrors.visaExpiry = "Visa expiry date is required";
+    }
+    
+    if (!form.emiratesIdExpiry) {
+      newErrors.emiratesIdExpiry = "Emirates ID expiry date is required";
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleAdd = () => {
-    if (!form.name.trim() || !form.visaExpiry || !form.emiratesIdExpiry) {
-      toast({ title: "Missing fields", description: "Please fill in all fields.", variant: "destructive" });
+    if (!validateForm()) {
+      toast({ title: "Validation Error", description: "Please fill in all required fields.", variant: "destructive" });
       return;
     }
     const newEmp: Employee = {
@@ -70,8 +155,8 @@ const EmployeesPage = () => {
   };
 
   const handleEdit = () => {
-    if (!form.name.trim() || !form.visaExpiry || !form.emiratesIdExpiry) {
-      toast({ title: "Missing fields", description: "Please fill in all fields.", variant: "destructive" });
+    if (!editingId || !validateForm()) {
+      toast({ title: "Validation Error", description: "Please fill in all required fields.", variant: "destructive" });
       return;
     }
     setEmployees((prev) =>
@@ -92,24 +177,13 @@ const EmployeesPage = () => {
     toast({ title: "Employee removed" });
   };
 
-  const EmpForm = ({ onSubmit, label }: { onSubmit: () => void; label: string }) => (
-    <div className="space-y-4 mt-2">
-      <div className="space-y-2">
-        <Label>Employee Name</Label>
-        <Input placeholder="Full name" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} maxLength={100} />
-      </div>
-      <div className="space-y-2">
-        <Label>Visa Expiry Date</Label>
-        <Input type="date" value={form.visaExpiry} onChange={(e) => setForm((p) => ({ ...p, visaExpiry: e.target.value }))} />
-      </div>
-      <div className="space-y-2">
-        <Label>Emirates ID Expiry Date</Label>
-        <Input type="date" value={form.emiratesIdExpiry} onChange={(e) => setForm((p) => ({ ...p, emiratesIdExpiry: e.target.value }))} />
-      </div>
-      <Button className="w-full" onClick={onSubmit}>{label}</Button>
-    </div>
-  );
+  const clearFieldError = (field: string) => {
+    if (errors[field as keyof typeof errors]) {
+      setErrors((p) => ({ ...p, [field]: undefined }));
+    }
+  };
 
+  
   return (
     <AppLayout>
       <div className="max-w-5xl mx-auto animate-fade-in">
@@ -121,7 +195,7 @@ const EmployeesPage = () => {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>Add Employee</DialogTitle></DialogHeader>
-              <EmpForm onSubmit={handleAdd} label="Add Employee" />
+              <EmpForm form={form} setForm={setForm} onSubmit={handleAdd} label="Add Employee" errors={errors} onFieldChange={clearFieldError} />
             </DialogContent>
           </Dialog>
         </div>
@@ -191,7 +265,7 @@ const EmployeesPage = () => {
         <Dialog open={editOpen} onOpenChange={(o) => { setEditOpen(o); if (!o) { setEditingId(null); setForm(emptyForm); } }}>
           <DialogContent>
             <DialogHeader><DialogTitle>Edit Employee</DialogTitle></DialogHeader>
-            <EmpForm onSubmit={handleEdit} label="Save Changes" />
+            <EmpForm form={form} setForm={setForm} onSubmit={handleEdit} label="Save Changes" errors={errors} onFieldChange={clearFieldError} />
           </DialogContent>
         </Dialog>
       </div>
