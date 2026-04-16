@@ -9,7 +9,7 @@ export interface CompanyData {
 }
 
 export interface ComplianceData {
-  trade_license_expiry: string
+  trade_license_expiry?: string
   visa_count?: string
 }
 
@@ -84,12 +84,20 @@ export class OnboardingService {
   // Update company compliance info
   async updateComplianceInfo(companyId: string, data: ComplianceData): Promise<{ success: boolean; error?: string }> {
     try {
+      // Build update object dynamically, only including defined fields
+      const updateData: any = {};
+      
+      if (data.trade_license_expiry !== undefined) {
+        updateData.trade_license_expiry = data.trade_license_expiry;
+      }
+      
+      if (data.visa_count !== undefined) {
+        updateData.visa_count = data.visa_count;
+      }
+
       const { error } = await supabase
         .from('companies')
-        .update({
-          trade_license_expiry: data.trade_license_expiry,
-          visa_count: data.visa_count
-        })
+        .update(updateData)
         .eq('id', companyId)
 
       if (error) {

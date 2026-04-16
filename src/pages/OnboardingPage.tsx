@@ -140,7 +140,7 @@ const OnboardingPage = () => {
     
     // Update compliance info
     const complianceResult = await onboardingService.updateComplianceInfo(companyId, {
-      trade_license_expiry: tradeLicenseExpiry,
+      trade_license_expiry: tradeLicenseExpiry || undefined,
       visa_count: visaCount || undefined
     });
     
