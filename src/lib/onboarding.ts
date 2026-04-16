@@ -113,13 +113,10 @@ export class OnboardingService {
   // Add first employee
   async addFirstEmployee(companyId: string, data: EmployeeData): Promise<{ success: boolean; error?: string }> {
     try {
-      const { error } = await supabase
-        .from('employees')
-        .insert({
-          company_id: companyId,
-          name: data.name,
-          salary: data.salary
-        })
+      const { error } = await supabase.rpc('insert_employee_for_current_user', {
+        employee_name: data.name,
+        employee_salary: data.salary || null
+      })
 
       if (error) {
         return { success: false, error: error.message }

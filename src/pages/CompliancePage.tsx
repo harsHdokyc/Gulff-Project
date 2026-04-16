@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
-import { validateAlphabeticText, isValidAlphabeticInput } from "@/lib/formValidation";
+import { validateAlphabeticText, isValidAlphabeticInput, getMinDate } from "@/lib/formValidation";
 import { useTasks, useCreateTask, useUpdateTask, useDeleteTask, useToggleTaskStatus } from "@/hooks/useDashboardTasksQuery";
 import { Task } from "@/lib/dashboardTasks";
 import {
@@ -69,6 +69,7 @@ const TaskForm = ({ form, setForm, onSubmit, submitLabel, errors = {}, onFieldCh
           onFieldChange?.('due_date');
         }} 
         className={errors.due_date ? "border-destructive" : ""}
+        min={getMinDate()}
       />
       {errors.due_date && <p className="text-xs text-destructive">{errors.due_date}</p>}
     </div>

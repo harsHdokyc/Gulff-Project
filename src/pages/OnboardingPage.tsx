@@ -9,7 +9,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { Sun, Moon, Loader2 } from "lucide-react";
 import { onboardingService } from "@/lib/onboarding";
 import { toast } from "@/hooks/use-toast";
-import { validateAlphabeticText, isValidAlphabeticInput, validateAlphanumericText, isValidAlphanumericInput } from "@/lib/formValidation";
+import { validateAlphabeticText, isValidAlphabeticInput, validateAlphanumericText, isValidAlphanumericInput, isValidPhoneNumber, isValidNumericInput, getMinDate } from "@/lib/formValidation";
 
 const OnboardingPage = () => {
   const [step, setStep] = useState(1);
@@ -83,10 +83,10 @@ const OnboardingPage = () => {
         }
         setLoading(false);
       } else if (step === 3) {
-        if (!employeeCount) {
+        if (!employeeName || !employeeSalary || !employeeCount) {
           toast({
             title: "Missing Information",
-            description: "Please select employee count.",
+            description: "Please fill in all required fields.",
             variant: "destructive"
           });
           return;
@@ -312,7 +312,12 @@ const OnboardingPage = () => {
                   <Input 
                     placeholder="50 123 4567" 
                     value={phoneNumber} 
-                    onChange={(e) => setPhoneNumber(e.target.value)} 
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (isValidPhoneNumber(value)) {
+                        setPhoneNumber(value);
+                      }
+                    }} 
                     disabled={loading} 
                     className="flex-1"
                   />
@@ -342,11 +347,27 @@ const OnboardingPage = () => {
             <div className="mt-6 space-y-4">
               <div className="space-y-2">
                 <Label>Trade License Expiry Date</Label>
-                <Input type="date" value={tradeLicenseExpiry} onChange={(e) => setTradeLicenseExpiry(e.target.value)} disabled={loading} />
+                <Input 
+                  type="date" 
+                  value={tradeLicenseExpiry} 
+                  onChange={(e) => setTradeLicenseExpiry(e.target.value)} 
+                  disabled={loading}
+                  min={getMinDate()}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Number of Visas (optional)</Label>
-                <Input placeholder="e.g., 5" value={visaCount} onChange={(e) => setVisaCount(e.target.value)} disabled={loading} />
+                <Input 
+                  placeholder="e.g., 5" 
+                  value={visaCount} 
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (isValidNumericInput(value)) {
+                      setVisaCount(value);
+                    }
+                  }} 
+                  disabled={loading} 
+                />
               </div>
             </div>
           </div>
@@ -359,6 +380,34 @@ const OnboardingPage = () => {
             <p className="mt-1 text-sm text-muted-foreground">Add your first employee and company size.</p>
             <div className="mt-6 space-y-4">
               <div className="space-y-2">
+                <Label>Employee Name *</Label>
+                <Input 
+                  placeholder="Employee name" 
+                  value={employeeName} 
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (isValidAlphabeticInput(value)) {
+                      setEmployeeName(validateAlphabeticText(value));
+                    }
+                  }} 
+                  disabled={loading} 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Salary *</Label>
+                <Input 
+                  placeholder="e.g., 5000" 
+                  value={employeeSalary} 
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (isValidNumericInput(value)) {
+                      setEmployeeSalary(value);
+                    }
+                  }} 
+                  disabled={loading} 
+                />
+              </div>
+              <div className="space-y-2">
                 <Label>Employee Count *</Label>
                 <Select value={employeeCount} onValueChange={setEmployeeCount} disabled={loading}>
                   <SelectTrigger><SelectValue placeholder="Select range" /></SelectTrigger>
@@ -369,14 +418,6 @@ const OnboardingPage = () => {
                     <SelectItem value="50+">50+</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Employee Name (optional)</Label>
-                <Input placeholder="Employee name" value={employeeName} onChange={(e) => setEmployeeName(e.target.value)} disabled={loading} />
-              </div>
-              <div className="space-y-2">
-                <Label>Salary (optional)</Label>
-                <Input placeholder="e.g., 5000" value={employeeSalary} onChange={(e) => setEmployeeSalary(e.target.value)} disabled={loading} />
               </div>
             </div>
           </div>

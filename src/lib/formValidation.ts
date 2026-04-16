@@ -52,3 +52,35 @@ export function isValidAlphanumericInput(text: string): boolean {
   if (!text) return true;
   return /^[A-Za-z0-9\s]*$/.test(text);
 }
+
+/**
+ * Validates phone number input (digits and spaces only)
+ * @param text - Input text to validate
+ * @returns true if valid, false otherwise
+ */
+export function isValidPhoneNumber(text: string): boolean {
+  if (!text) return true;
+  return /^[0-9\s]*$/.test(text);
+}
+
+/**
+ * Validates numeric input (digits only)
+ * @param text - Input text to validate
+ * @returns true if valid, false otherwise
+ */
+export function isValidNumericInput(text: string): boolean {
+  if (!text) return true;
+  return /^[0-9]*$/.test(text);
+}
+
+/**
+ * Gets minimum date for date inputs (today's date)
+ * @returns Today's date in YYYY-MM-DD format
+ */
+export function getMinDate(): string {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
