@@ -1,20 +1,24 @@
 import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Plus, Eye, Download, Trash2, Search, Edit } from "lucide-react";
+import { Plus, Eye, Trash2, Search, Edit } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
+import { useDocuments, useCreateDocument, useUpdateDocument, useDeleteDocument } from "@/hooks/useDocumentsQuery";
+import type { Document } from "@/lib/documentService";
+import { validateAlphabeticText, isValidAlphabeticInput, getMinDate } from "@/lib/formValidation";
 
 interface Doc {
-  id: number;
+  id: string;
   name: string;
   type: string;
   expiry: string;
   status: string;
   fileName?: string;
+  file_path?: string;
 }
 
 const computeDocStatus = (expiry: string): string => {
@@ -57,7 +61,8 @@ const DocForm = ({ form, setForm, onSubmit, label, errors = {}, onFieldChange, s
         placeholder="e.g., Trade License 2025" 
         value={form.name} 
         onChange={(e) => {
-          setForm((p) => ({ ...p, name: e.target.value }));
+          const value = validateAlphabeticText(e.target.value);
+          setForm((p) => ({ ...p, name: value }));
           onFieldChange?.('name');
         }} 
         maxLength={100} 
@@ -96,6 +101,7 @@ const DocForm = ({ form, setForm, onSubmit, label, errors = {}, onFieldChange, s
       <Input 
         type="date" 
         value={form.expiry} 
+        min={getMinDate()}
         onChange={(e) => {
           setForm((p) => ({ ...p, expiry: e.target.value }));
           onFieldChange?.('expiry');
@@ -123,7 +129,7 @@ const DocForm = ({ form, setForm, onSubmit, label, errors = {}, onFieldChange, s
               setSelectedFile?.(e.target.files?.[0] || null);
               onFieldChange?.('file');
             }}
-            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+            accept=".pdf"
           />
           <Button variant="outline" size="sm" className="mt-2" onClick={() => document.getElementById("doc-file-input")?.click()}>
             Browse
@@ -137,27 +143,49 @@ const DocForm = ({ form, setForm, onSubmit, label, errors = {}, onFieldChange, s
 );
 
 const DocumentsPage = () => {
-  const [docs, setDocs] = useState<Doc[]>([]);
+  const { documents, isLoading } = useDocuments();
+  const createDocument = useCreateDocument();
+  const updateDocument = useUpdateDocument();
+  const deleteDocument = useDeleteDocument();
+  
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState<{ name?: string; type?: string; expiry?: string; file?: string }>({});
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
-  const filtered = docs.filter((doc) => {
-    if (statusFilter !== "all" && doc.status !== statusFilter) return false;
+  const filtered = documents.filter((doc) => {
+    const statusMap = {
+      'active': 'Active',
+      'expiring-soon': 'Expiring Soon',
+      'expired': 'Expired'
+    };
+    
+    const displayStatus = statusMap[doc.status];
+    
+    if (statusFilter !== "all" && displayStatus !== statusFilter) return false;
     if (search && !doc.name.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
+
+  // Sort by created_at to show latest first
+  const sorted = [...filtered].sort((a, b) => 
+    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
 
   const validateForm = (isUpload: boolean = false) => {
     const newErrors: { name?: string; type?: string; expiry?: string; file?: string } = {};
     
     if (!form.name.trim()) {
       newErrors.name = "Document name is required";
+    } else if (!isValidAlphabeticInput(form.name)) {
+      newErrors.name = "Document name should contain only letters and spaces";
     }
     
     if (!form.type) {
@@ -181,25 +209,38 @@ const DocumentsPage = () => {
       toast({ title: "Validation Error", description: "Please fill in all required fields.", variant: "destructive" });
       return;
     }
+    
     const docName = form.name.trim();
-    const newDoc: Doc = {
-      id: Date.now(),
-      name: docName,
-      type: form.type,
-      expiry: form.expiry,
-      status: computeDocStatus(form.expiry),
-      fileName: selectedFile?.name,
-    };
-    setDocs((prev) => [...prev, newDoc]);
-    setForm(emptyForm);
-    setSelectedFile(null);
-    setAddOpen(false);
-    toast({ title: "Document uploaded", description: `"${docName}" has been added.` });
+    setIsUploading(true);
+    
+    createDocument.mutate({
+      data: {
+        name: docName,
+        type: form.type as Document['type'],
+        expiry_date: form.expiry || undefined,
+      },
+      file: selectedFile || undefined
+    }, {
+      onSuccess: () => {
+        setIsUploading(false);
+        setForm(emptyForm);
+        setSelectedFile(null);
+        setAddOpen(false);
+      },
+      onError: () => {
+        setIsUploading(false);
+      }
+    });
   };
 
-  const openEdit = (doc: Doc) => {
+  const openEdit = (doc: Document) => {
     setEditingId(doc.id);
-    setForm({ name: doc.name, type: doc.type, expiry: doc.expiry, fileName: doc.fileName || "" });
+    setForm({ 
+      name: doc.name, 
+      type: doc.type, 
+      expiry: doc.expiry_date || '', 
+      fileName: doc.file_path?.split('/').pop() || '' 
+    });
     setEditOpen(true);
   };
 
@@ -208,21 +249,46 @@ const DocumentsPage = () => {
       toast({ title: "Validation Error", description: "Please fill in all required fields.", variant: "destructive" });
       return;
     }
-    const docName = form.name.trim();
-    setDocs((prev) =>
-      prev.map((d) =>
-        d.id === editingId ? { ...d, name: docName, type: form.type, expiry: form.expiry, status: computeDocStatus(form.expiry) } : d
-      )
-    );
+    
+    updateDocument.mutate({
+      id: editingId,
+      updates: {
+        name: form.name.trim(),
+        type: form.type as Document['type'],
+        expiry_date: form.expiry || undefined,
+      }
+    });
+
     setEditOpen(false);
     setEditingId(null);
     setForm(emptyForm);
-    toast({ title: "Document updated" });
   };
 
-  const deleteDoc = (id: number) => {
-    setDocs((prev) => prev.filter((d) => d.id !== id));
-    toast({ title: "Document deleted" });
+  const deleteDoc = (id: string) => {
+    deleteDocument.mutate(id);
+  };
+  
+  const previewDoc = async (doc: Document) => {
+    if (doc.file_path) {
+      try {
+        const { documentService } = await import('@/lib/documentService');
+        const url = await documentService.getDocumentDownloadUrl(doc.file_path);
+        setPreviewUrl(url);
+        setPreviewOpen(true);
+      } catch (error) {
+        toast({
+          title: "Preview failed",
+          description: "Could not load document preview.",
+          variant: "destructive"
+        });
+      }
+    } else {
+      toast({
+        title: "No file available",
+        description: "This document doesn't have an associated file.",
+        variant: "destructive"
+      });
+    }
   };
 
   const clearFieldError = (field: string) => {
@@ -231,18 +297,41 @@ const DocumentsPage = () => {
     }
   };
 
+  const isOperating = createDocument.isPending || updateDocument.isPending || deleteDocument.isPending || isUploading;
+
   return (
     <AppLayout>
       <div className="max-w-5xl mx-auto animate-fade-in">
+        {isLoading && (
+          <div className="flex items-center justify-center py-8">
+            <div className="text-muted-foreground">Loading documents...</div>
+          </div>
+        )}
         <div className="flex items-center justify-between mb-6">
-          <h1 className="font-heading text-2xl font-semibold text-foreground">Documents</h1>
+          <h1 className="font-heading text-2xl font-semibold text-foreground">Documents ({filtered.length})</h1>
           <Dialog open={addOpen} onOpenChange={(o) => { setAddOpen(o); if (!o) { setForm(emptyForm); setSelectedFile(null); } }}>
             <DialogTrigger asChild>
-              <Button size="sm"><Plus className="h-4 w-4 mr-1" /> Upload Document</Button>
+              <Button size="sm" disabled={isOperating}><Plus className="h-4 w-4 mr-1" /> Upload Document</Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>Upload Document</DialogTitle></DialogHeader>
-              <DocForm form={form} setForm={setForm} onSubmit={handleAdd} label="Upload Document" errors={errors} onFieldChange={clearFieldError} selectedFile={selectedFile} setSelectedFile={setSelectedFile} />
+              <DialogHeader>
+                <DialogTitle>Upload Document</DialogTitle>
+                {isUploading && (
+                  <div className="text-sm text-muted-foreground mb-2">
+                    Uploading document... Please wait.
+                  </div>
+                )}
+              </DialogHeader>
+              <DocForm 
+                form={form} 
+                setForm={setForm} 
+                onSubmit={handleAdd} 
+                label={isUploading ? "Uploading..." : "Upload Document"} 
+                errors={errors} 
+                onFieldChange={clearFieldError} 
+                selectedFile={selectedFile} 
+                setSelectedFile={setSelectedFile} 
+              />
             </DialogContent>
           </Dialog>
         </div>
@@ -276,33 +365,46 @@ const DocumentsPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filtered.length === 0 ? (
+                {sorted.length === 0 ? (
                   <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">No documents found.</td></tr>
                 ) : (
-                  filtered.map((doc) => (
+                  sorted.map((doc) => (
                     <tr key={doc.id} className="hover:bg-accent/50 transition-colors">
                       <td className="px-4 py-3 text-foreground font-medium">{doc.name}</td>
                       <td className="px-4 py-3 text-muted-foreground">{docTypeLabels[doc.type] || doc.type}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{doc.expiry}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{doc.expiry_date || 'No expiry'}</td>
                       <td className="px-4 py-3">
                         <span className={`text-xs px-2 py-0.5 rounded-full ${
-                          doc.status === "Active" ? "bg-success/10 text-success" :
-                          doc.status === "Expiring Soon" ? "bg-warning/10 text-warning" :
+                          doc.status === "active" ? "bg-success/10 text-success" :
+                          doc.status === "expiring-soon" ? "bg-warning/10 text-warning" :
                           "bg-destructive/10 text-destructive"
-                        }`}>{doc.status}</span>
+                        }`}>{
+                          doc.status === "active" ? "Active" :
+                          doc.status === "expiring-soon" ? "Expiring Soon" :
+                          "Expired"
+                        }</span>
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => openEdit(doc)} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+                          <button 
+                            onClick={() => openEdit(doc)} 
+                            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                            disabled={isOperating}
+                          >
                             <Edit className="h-3.5 w-3.5" />
                           </button>
-                          <button className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+                          <button 
+                            onClick={() => previewDoc(doc)} 
+                            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                            disabled={isOperating || !doc.file_path}
+                          >
                             <Eye className="h-3.5 w-3.5" />
                           </button>
-                          <button className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
-                            <Download className="h-3.5 w-3.5" />
-                          </button>
-                          <button onClick={() => deleteDoc(doc.id)} className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-accent transition-colors">
+                          <button 
+                            onClick={() => deleteDoc(doc.id)} 
+                            className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-accent transition-colors"
+                            disabled={isOperating}
+                          >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
@@ -319,6 +421,22 @@ const DocumentsPage = () => {
           <DialogContent>
             <DialogHeader><DialogTitle>Edit Document</DialogTitle></DialogHeader>
             <DocForm form={form} setForm={setForm} onSubmit={handleEdit} label="Save Changes" errors={errors} onFieldChange={clearFieldError} />
+          </DialogContent>
+        </Dialog>
+
+        {/* Preview Modal */}
+        <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+          <DialogContent className="max-w-4xl max-h-[80vh]">
+            <DialogHeader>
+              <DialogTitle>Document Preview</DialogTitle>
+            </DialogHeader>
+            {previewUrl && (
+              <iframe 
+                src={previewUrl} 
+                className="w-full h-[60vh] border rounded"
+                title="Document Preview"
+              />
+            )}
           </DialogContent>
         </Dialog>
       </div>
