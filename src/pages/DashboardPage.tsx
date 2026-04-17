@@ -112,20 +112,10 @@ const DashboardPage = () => {
         </div>
 
         {alerts && alerts.length > 0 && (
-          <div className="mb-6 space-y-2">
-            {alerts.map((alert) => (
-              <div
-                key={alert.id}
-                className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-sm ${
-                  alert.type === "danger"
-                    ? "border-destructive/30 bg-destructive/5 text-destructive"
-                    : "border-warning/30 bg-warning/5 text-warning"
-                }`}
-              >
-                <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-                {alert.message}
-              </div>
-            ))}
+          <div className="mb-6">
+            <p className="text-sm text-muted-foreground">
+              You have {alerts.length} notification{alerts.length > 1 ? 's' : ''}. Check the bell icon in the header.
+            </p>
           </div>
         )}
 

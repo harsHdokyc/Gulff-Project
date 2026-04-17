@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Bell, AlertTriangle, Clock, X, Check } from "lucide-react";
+import { useTaskAlerts, useTasks } from "@/hooks/useDashboardTasksQuery";
 
 export interface Notification {
   id: string;
@@ -9,30 +10,73 @@ export interface Notification {
   read: boolean;
 }
 
-const initialNotifications: Notification[] = [
-  { id: "1", message: "Trade License Renewal is overdue", type: "danger", time: "2 hours ago", read: false },
-  { id: "2", message: "Employee Visa expiring in 7 days – Ahmed", type: "warning", time: "5 hours ago", read: false },
-  { id: "3", message: "VAT Filing Q1 due in 14 days", type: "info", time: "1 day ago", read: false },
-  { id: "4", message: "Insurance Policy expiring soon", type: "warning", time: "2 days ago", read: true },
-  { id: "5", message: "Fire Safety Certificate due in 45 days", type: "info", time: "3 days ago", read: true },
-];
+interface NotificationCenterProps {
+  notifications?: Notification[];
+  onNotificationUpdate?: (notifications: Notification[]) => void;
+}
 
-const NotificationCenter = () => {
+const NotificationCenter = ({ 
+  notifications: initialNotifications = [], 
+  onNotificationUpdate 
+}: NotificationCenterProps) => {
   const [open, setOpen] = useState(false);
-  const [notifications, setNotifications] = useState(initialNotifications);
+  const [readNotifications, setReadNotifications] = useState<Set<string>>(new Set());
+  const { data: alerts } = useTaskAlerts();
+  const { tasks } = useTasks();
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  // Filter out alerts for completed tasks
+  const activeAlerts = alerts?.filter(alert => {
+    const task = tasks?.find(t => t.id === alert.task_id);
+    return task && task.status !== 'completed';
+  }) || [];
+
+  // Merge alerts with notifications
+  const allNotifications = [
+    ...initialNotifications,
+    ...(activeAlerts.map(alert => {
+      const dueDate = new Date(alert.due_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      dueDate.setHours(0, 0, 0, 0);
+      
+      const daysDiff = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      
+      let timeText: string;
+      if (daysDiff === 0) {
+        timeText = "Today";
+      } else if (daysDiff === 1) {
+        timeText = "Tomorrow";
+      } else if (daysDiff === -1) {
+        timeText = "Yesterday";
+      } else if (daysDiff > 0) {
+        timeText = `In ${daysDiff} days`;
+      } else {
+        timeText = `${Math.abs(daysDiff)} days ago`;
+      }
+      
+      return {
+        id: `alert-${alert.id}`,
+        message: alert.message,
+        type: alert.type as "danger" | "warning" | "info",
+        time: timeText,
+        read: false
+      };
+    }) || [])
+  ];
+
+  const unreadCount = allNotifications.filter((n) => !n.read && !readNotifications.has(n.id)).length;
 
   const markAsRead = (id: string) => {
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    setReadNotifications(prev => new Set([...prev, id]));
   };
 
   const markAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    const allIds = allNotifications.map(n => n.id);
+    setReadNotifications(new Set(allIds));
   };
 
   const dismiss = (id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    setReadNotifications(prev => new Set([...prev, id]));
   };
 
   return (
@@ -53,61 +97,40 @@ const NotificationCenter = () => {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div className="absolute right-0 top-full mt-2 w-80 rounded-lg border border-border bg-card shadow-lg z-50 overflow-hidden">
-            <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+            <div className="px-4 py-3 border-b border-border">
               <h3 className="text-sm font-medium text-foreground">Notifications</h3>
-              {unreadCount > 0 && (
-                <button
-                  onClick={markAllRead}
-                  className="text-xs text-primary hover:underline"
-                >
-                  Mark all read
-                </button>
-              )}
             </div>
             <div className="max-h-80 overflow-y-auto divide-y divide-border">
-              {notifications.length === 0 ? (
+              {allNotifications.length === 0 ? (
                 <div className="px-4 py-8 text-center text-sm text-muted-foreground">
                   No notifications
                 </div>
               ) : (
-                notifications.map((n) => (
-                  <div
-                    key={n.id}
-                    className={`px-4 py-3 flex items-start gap-3 text-sm transition-colors hover:bg-accent/50 ${
-                      !n.read ? "bg-primary/5" : ""
-                    }`}
-                  >
-                    <div className="mt-0.5 flex-shrink-0">
-                      {n.type === "danger" ? (
-                        <AlertTriangle className="h-4 w-4 text-destructive" />
-                      ) : n.type === "warning" ? (
-                        <AlertTriangle className="h-4 w-4 text-warning" />
-                      ) : (
-                        <Clock className="h-4 w-4 text-primary" />
-                      )}
+                allNotifications.map((n) => {
+                  const isRead = n.read || readNotifications.has(n.id);
+                  return (
+                    <div
+                      key={n.id}
+                      className={`px-4 py-3 flex items-start gap-3 text-sm transition-colors hover:bg-accent/50 ${
+                        !isRead ? "bg-primary/5" : ""
+                      }`}
+                    >
+                      <div className="mt-0.5 flex-shrink-0">
+                        {n.type === "danger" ? (
+                          <AlertTriangle className="h-4 w-4 text-destructive" />
+                        ) : n.type === "warning" ? (
+                          <AlertTriangle className="h-4 w-4 text-warning" />
+                        ) : (
+                          <Clock className="h-4 w-4 text-primary" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-foreground ${!isRead ? "font-medium" : ""}`}>{n.message}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{n.time}</p>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-foreground ${!n.read ? "font-medium" : ""}`}>{n.message}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{n.time}</p>
-                    </div>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      {!n.read && (
-                        <button
-                          onClick={() => markAsRead(n.id)}
-                          className="p-1 rounded text-muted-foreground hover:text-success transition-colors"
-                        >
-                          <Check className="h-3 w-3" />
-                        </button>
-                      )}
-                      <button
-                        onClick={() => dismiss(n.id)}
-                        className="p-1 rounded text-muted-foreground hover:text-destructive transition-colors"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
