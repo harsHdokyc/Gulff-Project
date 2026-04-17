@@ -90,9 +90,34 @@ export class AuthService {
     }
   }
 
+  // Check if email already exists
+  async checkEmailExists(email: string): Promise<{ exists: boolean; error?: string }> {
+    try {
+      // Use the RPC function to check auth.users table directly
+      const { data, error } = await supabase.rpc('check_user_email_exists', {
+        email_to_check: email
+      })
+      
+      if (error) {
+        return { exists: false }
+      }
+      
+      return { exists: !!data }
+    } catch (error) {
+      return { exists: false }
+    }
+  }
+
   // Sign up with email
   async signUp(data: SignUpData): Promise<{ success: boolean; error?: string }> {
     try {
+      // First check if email already exists
+      const emailCheck = await this.checkEmailExists(data.email)
+      
+      if (emailCheck.exists) {
+        return { success: false, error: 'An account with this email already exists. Please sign in instead.' }
+      }
+      
       const { error } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
@@ -106,12 +131,54 @@ export class AuthService {
       })
 
       if (error) {
+        // Check for duplicate email errors from Supabase (fallback)
+        const errorMessage = error.message.toLowerCase()
+        
+        if (errorMessage.includes('already registered') || 
+            errorMessage.includes('already in use') ||
+            errorMessage.includes('duplicate') ||
+            errorMessage.includes('already exists')) {
+          return { success: false, error: 'An account with this email already exists. Please sign in instead.' }
+        }
+        
         return { success: false, error: error.message }
       }
 
       return { success: true }
     } catch (error) {
       return { success: false, error: 'Signup failed' }
+    }
+  }
+
+  // Send password reset email (Supabase redirects to /reset-password)
+  async sendPasswordResetEmail(email: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/reset-password`,
+      })
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      return { success: true }
+    } catch {
+      return { success: false, error: 'Failed to send reset email' }
+    }
+  }
+
+  // Set a new password (used after recovery link opens a session)
+  async updatePassword(newPassword: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword })
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      return { success: true }
+    } catch {
+      return { success: false, error: 'Failed to update password' }
     }
   }
 

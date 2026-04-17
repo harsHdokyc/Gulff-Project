@@ -7,10 +7,12 @@ import { useTheme } from "@/hooks/useTheme";
 import { Sun, Moon, Loader2, Eye, EyeOff } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { authService } from "@/lib/auth";
 
 const SignInPage = () => {
   const [form, setForm] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
+  const [isSendingReset, setIsSendingReset] = useState(false);
   const { isDark, toggle } = useTheme();
   const { signIn, isSigningIn } = useAuthContext();
   const navigate = useNavigate();
@@ -43,6 +45,38 @@ const SignInPage = () => {
         description: error.message || "An error occurred",
         variant: "destructive"
       });
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    const email = form.email.trim();
+    if (!email) {
+      toast({
+        title: "Email required",
+        description: "Enter your email above, then try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSendingReset(true);
+    try {
+      const result = await authService.sendPasswordResetEmail(email);
+      if (!result.success) {
+        toast({
+          title: "Could not send reset email",
+          description: result.error || "Please try again later.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Check your email",
+        description: "If an account exists for that address, you will receive a link to reset your password.",
+      });
+    } finally {
+      setIsSendingReset(false);
     }
   };
 
@@ -105,6 +139,16 @@ const SignInPage = () => {
         <p className="mt-6 text-center text-sm text-muted-foreground">
           Don't have an account?{" "}
           <Link to="/signup" className="text-primary hover:underline">Create an account</Link>
+        </p>
+        <p className="mt-3 text-center text-sm text-muted-foreground">
+          <button
+            type="button"
+            onClick={handleForgotPassword}
+            disabled={isSigningIn || isSendingReset}
+            className="text-primary hover:underline disabled:opacity-50 disabled:pointer-events-none"
+          >
+            {isSendingReset ? "Sending reset link…" : "Forgot password?"}
+          </button>
         </p>
       </div>
     </div>

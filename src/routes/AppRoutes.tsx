@@ -14,6 +14,7 @@ import NotFound from "@/pages/NotFound";
 // Auth Components
 import SignUpPage from "@/pages/SignUpPage";
 import SignInPage from "@/pages/SignInPage";
+import ResetPasswordPage from "@/pages/ResetPasswordPage";
 
 // Protected Components
 import OnboardingPage from "@/pages/OnboardingPage";
@@ -44,7 +45,8 @@ export function AppRoutes() {
       <Route path={ROUTES.PUBLIC.ABOUT} element={<AboutPage />} />
       <Route path={ROUTES.PUBLIC.PRIVACY} element={<PrivacyPage />} />
       <Route path={ROUTES.PUBLIC.TERMS} element={<TermsPage />} />
-      
+      <Route path={ROUTES.AUTH.RESET_PASSWORD} element={<ResetPasswordPage />} />
+
       {/* Auth Routes - Only when not authenticated */}
       <Route 
         path={ROUTES.AUTH.SIGNUP} 

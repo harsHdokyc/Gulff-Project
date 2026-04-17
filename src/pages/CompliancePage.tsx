@@ -5,7 +5,7 @@ import { CheckCircle, Edit, Trash2, Search, Plus, X, Loader2 } from "lucide-reac
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 import { validateAlphabeticText, isValidAlphabeticInput, getMinDate } from "@/lib/formValidation";
@@ -132,9 +132,13 @@ const CompliancePage = () => {
   };
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [completeOpen, setCompleteOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState<{ type?: string; due_date?: string; priority?: string }>({});
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deletingTask, setDeletingTask] = useState<Task | null>(null);
+  const [completingTask, setCompletingTask] = useState<Task | null>(null);
 
   const { tasks, isLoading, error } = useTasks();
   const createTask = useCreateTask();
@@ -244,6 +248,32 @@ const CompliancePage = () => {
   const clearFieldError = (field: string) => {
     if (errors[field as keyof typeof errors]) {
       setErrors((p) => ({ ...p, [field]: undefined }));
+    }
+  };
+
+  const openDeleteConfirmation = (task: Task) => {
+    setDeletingTask(task);
+    setDeleteOpen(true);
+  };
+
+  const handleDelete = () => {
+    if (deletingTask) {
+      deleteTask.mutate(deletingTask.id);
+      setDeleteOpen(false);
+      setDeletingTask(null);
+    }
+  };
+
+  const openCompleteConfirmation = (task: Task) => {
+    setCompletingTask(task);
+    setCompleteOpen(true);
+  };
+
+  const handleComplete = () => {
+    if (completingTask) {
+      toggleStatus(completingTask);
+      setCompleteOpen(false);
+      setCompletingTask(null);
     }
   };
 
@@ -370,15 +400,31 @@ const CompliancePage = () => {
                       </td>
                       <td className="px-4 py-3 text-right w-[16.67%]">
                         <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => openEdit(task)} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+                          <button 
+                            onClick={() => openEdit(task)} 
+                            disabled={task.status === "completed"}
+                            className={`p-1.5 rounded-md transition-colors ${
+                              task.status === "completed" 
+                                ? "text-muted-foreground/50 cursor-not-allowed" 
+                                : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                            }`}
+                          >
                             <Edit className="h-3.5 w-3.5" />
                           </button>
                           {task.status !== "completed" && (
-                            <button onClick={() => toggleStatus(task)} className="p-1.5 rounded-md text-muted-foreground hover:text-success hover:bg-accent transition-colors">
+                            <button onClick={() => openCompleteConfirmation(task)} className="p-1.5 rounded-md text-muted-foreground hover:text-success hover:bg-accent transition-colors">
                               <CheckCircle className="h-3.5 w-3.5" />
                             </button>
                           )}
-                          <button onClick={() => deleteTask.mutate(task.id)} className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-accent transition-colors">
+                          <button 
+                            onClick={() => openDeleteConfirmation(task)} 
+                            disabled={task.status === "completed"}
+                            className={`p-1.5 rounded-md transition-colors ${
+                              task.status === "completed" 
+                                ? "text-muted-foreground/50 cursor-not-allowed" 
+                                : "text-muted-foreground hover:text-destructive hover:bg-accent"
+                            }`}
+                          >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
@@ -396,6 +442,51 @@ const CompliancePage = () => {
           <DialogContent>
             <DialogHeader><DialogTitle>Edit Task</DialogTitle></DialogHeader>
             <TaskForm form={form} setForm={setForm} onSubmit={handleEdit} submitLabel="Save Changes" errors={errors} onFieldChange={clearFieldError} />
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={deleteOpen} onOpenChange={(o) => { setDeleteOpen(o); if (!o) setDeletingTask(null); }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirm Delete</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <p className="text-sm text-muted-foreground">
+                Are you sure you want to delete the task "<span className="font-medium text-foreground">{deletingTask?.type}</span>"?
+              </p>
+              <p className="text-xs text-destructive mt-2">This action cannot be undone.</p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={handleDelete}>
+                Delete Task
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Complete Confirmation Dialog */}
+        <Dialog open={completeOpen} onOpenChange={(o) => { setCompleteOpen(o); if (!o) setCompletingTask(null); }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirm Completion</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <p className="text-sm text-muted-foreground">
+                Are you sure you want to mark the task "<span className="font-medium text-foreground">{completingTask?.type}</span>" as completed?
+              </p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCompleteOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleComplete}>
+                Mark as Complete
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
         </div>

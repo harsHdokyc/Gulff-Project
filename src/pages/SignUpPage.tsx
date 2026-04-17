@@ -46,9 +46,14 @@ const SignUpPage = () => {
       });
       setSearchParams({ step: "verify", email: form.email });
     } catch (error: any) {
+      const errorMessage = error.message || "An error occurred";
+      const isDuplicateEmail = errorMessage.includes("already exists") || errorMessage.includes("account with this email");
+      
       toast({
-        title: "Sign up failed",
-        description: error.message || "An error occurred",
+        title: isDuplicateEmail ? "Email already registered" : "Sign up failed",
+        description: isDuplicateEmail ? 
+          `${errorMessage}. Please sign in to your account.` : 
+          errorMessage,
         variant: "destructive"
       });
     }

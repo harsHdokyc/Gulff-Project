@@ -9,6 +9,7 @@ export const ROUTES = {
   AUTH: {
     SIGNUP: '/signup',
     SIGNIN: '/signin',
+    RESET_PASSWORD: '/reset-password',
   },
   ONBOARDING: '/onboarding',
   PROTECTED: {

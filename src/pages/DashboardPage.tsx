@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { AlertTriangle, Clock, Loader2, FileText } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useTasks, useTaskStats, useTaskAlerts, useToggleTaskStatus } from "@/hooks/useDashboardTasksQuery";
 import { Task } from "@/lib/dashboardTasks";
 import {
@@ -12,14 +13,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-// Helper function to truncate text
-const truncateText = (text: string, maxLength: number = 30) => {
-  if (!text || text.length <= maxLength) return text;
-  return text.substring(0, maxLength) + "...";
-};
+
 
 const DashboardPage = () => {
   const [priorityFilter, setPriorityFilter] = useState("all");
+  const [completeOpen, setCompleteOpen] = useState(false);
+  const [completingTask, setCompletingTask] = useState<Task | null>(null);
 
   const { tasks, isLoading, error } = useTasks();
   const { data: stats } = useTaskStats();
@@ -35,6 +34,19 @@ const DashboardPage = () => {
 
   const handleToggleTaskStatus = (task: Task) => {
     toggleStatus(task);
+  };
+
+  const openCompleteConfirmation = (task: Task) => {
+    setCompletingTask(task);
+    setCompleteOpen(true);
+  };
+
+  const handleComplete = () => {
+    if (completingTask) {
+      toggleStatus(completingTask);
+      setCompleteOpen(false);
+      setCompletingTask(null);
+    }
   };
 
   const statsData = [
@@ -154,7 +166,7 @@ const DashboardPage = () => {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => handleToggleTaskStatus(task)}
+                    onClick={() => openCompleteConfirmation(task)}
                     className="text-xs"
                   >
                     Complete
@@ -164,6 +176,28 @@ const DashboardPage = () => {
             ))}
           </div>
         </div>
+
+        {/* Complete Confirmation Dialog */}
+        <Dialog open={completeOpen} onOpenChange={(o) => { setCompleteOpen(o); if (!o) setCompletingTask(null); }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirm Completion</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <p className="text-sm text-muted-foreground">
+                Are you sure you want to mark the task "<span className="font-medium text-foreground">{completingTask?.type}</span>" as completed?
+              </p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCompleteOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleComplete}>
+                Mark as Complete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
       </TooltipProvider>
     </AppLayout>
