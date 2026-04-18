@@ -329,7 +329,7 @@ const LandingPage = () => {
             className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass text-xs font-medium mb-8"
           >
             <Sparkles className="w-3.5 h-3.5 text-primary" />
-            <span className="text-muted-foreground">Introducing v2 — built for 2026</span>
+            <span className="text-muted-foreground">Introducing Compliance Guard, built for Businesses</span>
           </motion.div>
 
           <h1 className="font-heading text-5xl md:text-7xl lg:text-8xl font-bold leading-[1.05] tracking-tight max-w-5xl">

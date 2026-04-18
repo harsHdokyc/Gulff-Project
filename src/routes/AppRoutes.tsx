@@ -1,28 +1,39 @@
 import { Routes, Route, Navigate } from "react-router-dom";
+import { lazy, Suspense } from "react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AuthGuard } from "@/components/AuthGuard";
 import { ROUTES } from "./constants";
 
-// Public Components
-import LandingPage from "@/pages/LandingPage";
-import AboutPage from "@/pages/AboutPage";
-import PrivacyPage from "@/pages/PrivacyPage";
-import TermsPage from "@/pages/TermsPage";
-import NotFound from "@/pages/NotFound";
+// Loading component
+const PageLoader = () => (
+  <div className="min-h-screen bg-background flex items-center justify-center">
+    <div className="text-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+      <div className="text-sm text-muted-foreground">Loading page...</div>
+    </div>
+  </div>
+);
 
-// Auth Components
-import SignUpPage from "@/pages/SignUpPage";
-import SignInPage from "@/pages/SignInPage";
-import ResetPasswordPage from "@/pages/ResetPasswordPage";
+// Lazy loaded Public Components
+const LandingPage = lazy(() => import("@/pages/LandingPage"));
+const AboutPage = lazy(() => import("@/pages/AboutPage"));
+const PrivacyPage = lazy(() => import("@/pages/PrivacyPage"));
+const TermsPage = lazy(() => import("@/pages/TermsPage"));
+const NotFound = lazy(() => import("@/pages/NotFound"));
 
-// Protected Components
-import OnboardingPage from "@/pages/OnboardingPage";
-import DashboardPage from "@/pages/DashboardPage";
-import CompliancePage from "@/pages/CompliancePage";
-import EmployeesPage from "@/pages/EmployeesPage";
-import DocumentsPage from "@/pages/DocumentsPage";
-import SettingsPage from "@/pages/SettingsPage";
+// Lazy loaded Auth Components
+const SignUpPage = lazy(() => import("@/pages/SignUpPage"));
+const SignInPage = lazy(() => import("@/pages/SignInPage"));
+const ResetPasswordPage = lazy(() => import("@/pages/ResetPasswordPage"));
+
+// Lazy loaded Protected Components
+const OnboardingPage = lazy(() => import("@/pages/OnboardingPage"));
+const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
+const CompliancePage = lazy(() => import("@/pages/CompliancePage"));
+const EmployeesPage = lazy(() => import("@/pages/EmployeesPage"));
+const DocumentsPage = lazy(() => import("@/pages/DocumentsPage"));
+const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
 
 export function AppRoutes() {
   const { user, loading, isOnboarded } = useAuthContext();
@@ -41,18 +52,40 @@ export function AppRoutes() {
   return (
     <Routes>
       {/* Public Routes - Always accessible */}
-      <Route path={ROUTES.PUBLIC.HOME} element={<LandingPage />} />
-      <Route path={ROUTES.PUBLIC.ABOUT} element={<AboutPage />} />
-      <Route path={ROUTES.PUBLIC.PRIVACY} element={<PrivacyPage />} />
-      <Route path={ROUTES.PUBLIC.TERMS} element={<TermsPage />} />
-      <Route path={ROUTES.AUTH.RESET_PASSWORD} element={<ResetPasswordPage />} />
+      <Route path={ROUTES.PUBLIC.HOME} element={
+        <Suspense fallback={<PageLoader />}>
+          <LandingPage />
+        </Suspense>
+      } />
+      <Route path={ROUTES.PUBLIC.ABOUT} element={
+        <Suspense fallback={<PageLoader />}>
+          <AboutPage />
+        </Suspense>
+      } />
+      <Route path={ROUTES.PUBLIC.PRIVACY} element={
+        <Suspense fallback={<PageLoader />}>
+          <PrivacyPage />
+        </Suspense>
+      } />
+      <Route path={ROUTES.PUBLIC.TERMS} element={
+        <Suspense fallback={<PageLoader />}>
+          <TermsPage />
+        </Suspense>
+      } />
+      <Route path={ROUTES.AUTH.RESET_PASSWORD} element={
+        <Suspense fallback={<PageLoader />}>
+          <ResetPasswordPage />
+        </Suspense>
+      } />
 
       {/* Auth Routes - Only when not authenticated */}
       <Route 
         path={ROUTES.AUTH.SIGNUP} 
         element={
           <AuthGuard>
-            <SignUpPage />
+            <Suspense fallback={<PageLoader />}>
+              <SignUpPage />
+            </Suspense>
           </AuthGuard>
         } 
       />
@@ -60,7 +93,9 @@ export function AppRoutes() {
         path={ROUTES.AUTH.SIGNIN} 
         element={
           <AuthGuard>
-            <SignInPage />
+            <Suspense fallback={<PageLoader />}>
+              <SignInPage />
+            </Suspense>
           </AuthGuard>
         } 
       />
@@ -70,7 +105,9 @@ export function AppRoutes() {
         path={ROUTES.ONBOARDING} 
         element={
           <ProtectedRoute requireOnboarding={false}>
-            <OnboardingPage />
+            <Suspense fallback={<PageLoader />}>
+              <OnboardingPage />
+            </Suspense>
           </ProtectedRoute>
         } 
       />
@@ -80,7 +117,9 @@ export function AppRoutes() {
         path={ROUTES.PROTECTED.DASHBOARD} 
         element={
           <ProtectedRoute requireOnboarding={true}>
-            <DashboardPage />
+            <Suspense fallback={<PageLoader />}>
+              <DashboardPage />
+            </Suspense>
           </ProtectedRoute>
         } 
       />
@@ -88,7 +127,9 @@ export function AppRoutes() {
         path={ROUTES.PROTECTED.COMPLIANCE} 
         element={
           <ProtectedRoute requireOnboarding={true}>
-            <CompliancePage />
+            <Suspense fallback={<PageLoader />}>
+              <CompliancePage />
+            </Suspense>
           </ProtectedRoute>
         } 
       />
@@ -96,7 +137,9 @@ export function AppRoutes() {
         path={ROUTES.PROTECTED.EMPLOYEES} 
         element={
           <ProtectedRoute requireOnboarding={true}>
-            <EmployeesPage />
+            <Suspense fallback={<PageLoader />}>
+              <EmployeesPage />
+            </Suspense>
           </ProtectedRoute>
         } 
       />
@@ -104,7 +147,9 @@ export function AppRoutes() {
         path={ROUTES.PROTECTED.DOCUMENTS} 
         element={
           <ProtectedRoute requireOnboarding={true}>
-            <DocumentsPage />
+            <Suspense fallback={<PageLoader />}>
+              <DocumentsPage />
+            </Suspense>
           </ProtectedRoute>
         } 
       />
@@ -112,7 +157,9 @@ export function AppRoutes() {
         path={ROUTES.PROTECTED.SETTINGS} 
         element={
           <ProtectedRoute requireOnboarding={true}>
-            <SettingsPage />
+            <Suspense fallback={<PageLoader />}>
+              <SettingsPage />
+            </Suspense>
           </ProtectedRoute>
         } 
       />
