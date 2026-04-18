@@ -1,13 +1,13 @@
 import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Plus, Eye, Trash2, Search, Edit } from "lucide-react";
+import { CheckCircle, Eye, Trash2, Search, Edit } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { useDocuments, useCreateDocument, useUpdateDocument, useDeleteDocument } from "@/hooks/useDocumentsQuery";
+import { useDocuments, useCreateDocument, useUpdateDocument, useDeleteDocument, useMarkDocumentComplete } from "@/hooks/useDocumentsQuery";
 import type { Document } from "@/lib/documentService";
 import { validateAlphabeticText, isValidAlphabeticInput, getMinDate } from "@/lib/formValidation";
 
@@ -147,6 +147,7 @@ const DocumentsPage = () => {
   const createDocument = useCreateDocument();
   const updateDocument = useUpdateDocument();
   const deleteDocument = useDeleteDocument();
+  const markDocumentComplete = useMarkDocumentComplete();
   
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -164,7 +165,8 @@ const DocumentsPage = () => {
     const statusMap = {
       'active': 'Active',
       'expiring-soon': 'Expiring Soon',
-      'expired': 'Expired'
+      'expired': 'Expired',
+      'complete': 'Complete'
     };
     
     const displayStatus = statusMap[doc.status];
@@ -297,7 +299,7 @@ const DocumentsPage = () => {
     }
   };
 
-  const isOperating = createDocument.isPending || updateDocument.isPending || deleteDocument.isPending || isUploading;
+  const isOperating = createDocument.isPending || updateDocument.isPending || deleteDocument.isPending || markDocumentComplete.isPending || isUploading;
 
   return (
     <AppLayout>
@@ -311,7 +313,7 @@ const DocumentsPage = () => {
           <h1 className="font-heading text-2xl font-semibold text-foreground">Documents ({filtered.length})</h1>
           <Dialog open={addOpen} onOpenChange={(o) => { setAddOpen(o); if (!o) { setForm(emptyForm); setSelectedFile(null); } }}>
             <DialogTrigger asChild>
-              <Button size="sm" disabled={isOperating}><Plus className="h-4 w-4 mr-1" /> Upload Document</Button>
+              <Button size="sm" disabled={isOperating}><CheckCircle className="h-4 w-4 mr-1" /> Upload Document</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -348,6 +350,7 @@ const DocumentsPage = () => {
               <SelectItem value="Active">Active</SelectItem>
               <SelectItem value="Expiring Soon">Expiring Soon</SelectItem>
               <SelectItem value="Expired">Expired</SelectItem>
+              <SelectItem value="Complete">Complete</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -377,8 +380,10 @@ const DocumentsPage = () => {
                         <span className={`text-xs px-2 py-0.5 rounded-full ${
                           doc.status === "active" ? "bg-success/10 text-success" :
                           doc.status === "expiring-soon" ? "bg-warning/10 text-warning" :
+                          doc.status === "complete" ? "bg-success/10 text-success" :
                           "bg-destructive/10 text-destructive"
                         }`}>{
+                          doc.status === "complete" ? "Complete" :
                           doc.status === "active" ? "Active" :
                           doc.status === "expiring-soon" ? "Expiring Soon" :
                           "Expired"
@@ -387,23 +392,41 @@ const DocumentsPage = () => {
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
                           <button 
-                            onClick={() => openEdit(doc)} 
+                            onClick={() => previewDoc(doc)} 
+                            disabled={isOperating || !doc.file_path}
                             className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                            disabled={isOperating}
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </button>
+                          {doc.status !== 'complete' && (
+                            <button 
+                              onClick={() => markDocumentComplete.mutate(doc.id)} 
+                              className="p-1.5 rounded-md text-muted-foreground hover:text-green-600 transition-colors"
+                              disabled={isOperating}
+                              title="Mark as complete"
+                            >
+                              <CheckCircle className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          <button 
+                            onClick={() => openEdit(doc)} 
+                            disabled={doc.status === 'complete' || isOperating}
+                            className={`p-1.5 rounded-md transition-colors ${
+                              doc.status === 'complete' 
+                                ? 'text-muted-foreground/50 cursor-not-allowed' 
+                                : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                            }`}
                           >
                             <Edit className="h-3.5 w-3.5" />
                           </button>
                           <button 
-                            onClick={() => previewDoc(doc)} 
-                            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                            disabled={isOperating || !doc.file_path}
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                          </button>
-                          <button 
                             onClick={() => deleteDoc(doc.id)} 
-                            className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-accent transition-colors"
-                            disabled={isOperating}
+                            disabled={doc.status === 'complete' || isOperating}
+                            className={`p-1.5 rounded-md transition-colors ${
+                              doc.status === 'complete' 
+                                ? 'text-muted-foreground/50 cursor-not-allowed' 
+                                : 'text-muted-foreground hover:text-destructive hover:bg-accent'
+                            }`}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>

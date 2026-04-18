@@ -9,7 +9,7 @@ export interface Document {
   file_path?: string
   file_size?: number
   mime_type?: string
-  status: 'active' | 'expiring-soon' | 'expired'
+  status: 'active' | 'expiring-soon' | 'expired' | 'complete'
   created_at: string
   updated_at: string
 }
@@ -140,6 +140,18 @@ class DocumentService {
     if (document.file_path) {
       await this.deleteDocumentFile(document.file_path)
     }
+  }
+
+  async markDocumentComplete(id: string): Promise<Document> {
+    const { data, error } = await supabase
+      .from('documents')
+      .update({ status: 'complete' })
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
   }
 
   async uploadDocument(file: File): Promise<{ path: string }> {

@@ -1,10 +1,11 @@
 import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Clock, Loader2, FileText } from "lucide-react";
+import { AlertTriangle, Clock, Loader2, FileText, FileCheck, AlertCircle } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useTasks, useTaskStats, useTaskAlerts, useToggleTaskStatus } from "@/hooks/useDashboardTasksQuery";
+import { useDocumentSummary, useDocumentAlerts, useToggleDocumentStatus } from "@/hooks/useDocumentSummaryQuery";
 import { Task } from "@/lib/dashboardTasks";
 import {
   Tooltip,
@@ -21,9 +22,12 @@ const DashboardPage = () => {
   const [completingTask, setCompletingTask] = useState<Task | null>(null);
 
   const { tasks, isLoading, error } = useTasks();
-  const { data: stats } = useTaskStats();
-  const { data: alerts } = useTaskAlerts();
+  const { data: taskStats } = useTaskStats();
+  const { data: taskAlerts } = useTaskAlerts();
   const { toggleStatus } = useToggleTaskStatus();
+  const { data: documentSummary } = useDocumentSummary();
+  const { data: documentAlerts } = useDocumentAlerts();
+  const { toggleStatus: toggleDocumentStatus, isLoading: isDocumentLoading } = useToggleDocumentStatus();
 
   // Filter tasks by priority for upcoming deadlines
   const filteredTasks = useMemo(() => {
@@ -50,10 +54,26 @@ const DashboardPage = () => {
   };
 
   const statsData = [
-    { label: "Total Tasks", value: stats?.total || 0, colorClass: "text-foreground" },
-    { label: "Pending", value: stats?.pending || 0, colorClass: "text-warning" },
-    { label: "Completed", value: stats?.completed || 0, colorClass: "text-success" },
-    { label: "Overdue", value: stats?.overdue || 0, colorClass: "text-destructive" },
+    { 
+      label: "Total Tasks", 
+      value: (taskStats?.total || 0) + (documentSummary?.stats.total || 0), 
+      colorClass: "text-foreground" 
+    },
+    { 
+      label: "Pending/Active", 
+      value: (taskStats?.pending || 0) + (documentSummary?.stats.active || 0), 
+      colorClass: "text-warning" 
+    },
+    { 
+      label: "Completed", 
+      value: (taskStats?.completed || 0) + (documentSummary?.stats.complete || 0), 
+      colorClass: "text-success" 
+    },
+    { 
+      label: "Overdue/Expiring/Expired", 
+      value: (taskStats?.overdue || 0) + (documentSummary?.stats.expiring || 0) + (documentSummary?.stats.expired || 0), 
+      colorClass: "text-destructive" 
+    },
   ];
 
 
@@ -111,14 +131,15 @@ const DashboardPage = () => {
           ))}
         </div>
 
-        {alerts && alerts.length > 0 && (
+        {(taskAlerts && taskAlerts.length > 0) || (documentAlerts && documentAlerts.length > 0) && (
           <div className="mb-6">
             <p className="text-sm text-muted-foreground">
-              You have {alerts.length} notification{alerts.length > 1 ? 's' : ''}. Check the bell icon in the header.
+              You have {(taskAlerts?.length || 0) + (documentAlerts?.length || 0)} notification{((taskAlerts?.length || 0) + (documentAlerts?.length || 0)) > 1 ? 's' : ''}. Check bell icon in the header.
             </p>
           </div>
         )}
 
+        
         <div className="rounded-lg border border-border bg-card overflow-hidden">
           <div className="px-4 py-3 border-b border-border flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -128,6 +149,7 @@ const DashboardPage = () => {
             <span className="text-xs text-muted-foreground">Latest first</span>
           </div>
           <div className="divide-y divide-border">
+            {/* Tasks */}
             {filteredTasks.map((task) => (
               <div key={task.id} className="px-4 py-3 flex items-center justify-between text-sm hover:bg-accent/50 transition-colors">
                 <span className="text-foreground">{task.type}</span>
@@ -161,6 +183,41 @@ const DashboardPage = () => {
                   >
                     Complete
                   </Button>
+                </div>
+              </div>
+            ))}
+            
+            {/* Documents */}
+            {documentSummary?.upcomingDeadlines.map((doc) => (
+              <div key={doc.id} className="px-4 py-3 flex items-center justify-between text-sm hover:bg-accent/50 transition-colors">
+                <div className="flex items-center gap-2">
+                  <FileCheck className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-foreground">{doc.name}</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className="text-muted-foreground hidden md:block">{doc.expiry_date || 'No expiry'}</span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${
+                    doc.status === 'active' ? 'bg-success/10 text-success' :
+                    doc.status === 'expiring-soon' ? 'bg-warning/10 text-warning' :
+                    doc.status === 'complete' ? 'bg-blue-500/10 text-blue-500' :
+                    'bg-destructive/10 text-destructive'
+                  }`}>
+                    {doc.status === 'active' ? 'Active' :
+                     doc.status === 'expiring-soon' ? 'Expiring Soon' :
+                     doc.status === 'complete' ? 'Complete' :
+                     'Expired'}
+                  </span>
+                  {doc.status !== 'complete' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => toggleDocumentStatus(doc)}
+                      className="text-xs"
+                      disabled={isDocumentLoading}
+                    >
+                      Complete
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}

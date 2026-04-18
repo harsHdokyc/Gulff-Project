@@ -171,3 +171,26 @@ export function useDownloadDocument() {
     },
   })
 }
+
+export function useMarkDocumentComplete() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => documentService.markDocumentComplete(id),
+    onSuccess: (updatedDocument) => {
+      queryClient.invalidateQueries({ queryKey: documentKeys.list() })
+      
+      toast({
+        title: "Document completed",
+        description: `"${updatedDocument.name}" has been marked as complete.`,
+      })
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to complete document",
+        description: error instanceof Error ? error.message : "Failed to mark document as complete",
+        variant: "destructive",
+      })
+    },
+  })
+}

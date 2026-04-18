@@ -119,17 +119,37 @@
     font-family: var(--font-heading);
   }
 
-  /* Date input calendar icon styling */
-  input[type="date"]::-webkit-calendar-picker-indicator {
-    filter: invert(0.5);
+  html {
+    scroll-behavior: smooth;
   }
+}
 
-  .dark input[type="date"]::-webkit-calendar-picker-indicator {
-    filter: invert(1);
-    cursor: pointer;
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-br from-foreground via-foreground to-foreground/50;
   }
-
-  input[type="date"]::-webkit-calendar-picker-indicator:hover {
-    opacity: 0.7;
+  .text-gradient-primary {
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(280 90% 70%), hsl(var(--primary)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .glass {
+    @apply bg-card/40 backdrop-blur-xl border border-border/50;
+  }
+  .glow-primary {
+    box-shadow: 0 0 80px -20px hsl(var(--primary) / 0.6);
+  }
+  .mask-fade-x {
+    mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+  }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { scrollbar-width: none; }
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, hsl(var(--border) / 0.4) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--border) / 0.4) 1px, transparent 1px);
+    background-size: 48px 48px;
   }
 }

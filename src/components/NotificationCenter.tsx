@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Bell, AlertTriangle, Clock, X, Check } from "lucide-react";
 import { useTaskAlerts, useTasks } from "@/hooks/useDashboardTasksQuery";
+import { useDocumentAlerts } from "@/hooks/useDocumentSummaryQuery";
 
 export interface Notification {
   id: string;
@@ -21,19 +22,23 @@ const NotificationCenter = ({
 }: NotificationCenterProps) => {
   const [open, setOpen] = useState(false);
   const [readNotifications, setReadNotifications] = useState<Set<string>>(new Set());
-  const { data: alerts } = useTaskAlerts();
+  const { data: taskAlerts } = useTaskAlerts();
+const { data: documentAlerts } = useDocumentAlerts();
   const { tasks } = useTasks();
 
   // Filter out alerts for completed tasks
-  const activeAlerts = alerts?.filter(alert => {
+  const activeTaskAlerts = taskAlerts?.filter(alert => {
     const task = tasks?.find(t => t.id === alert.task_id);
     return task && task.status !== 'completed';
   }) || [];
 
+  // All document alerts are active (expiring or expired)
+  const activeDocumentAlerts = documentAlerts || [];
+
   // Merge alerts with notifications
   const allNotifications = [
     ...initialNotifications,
-    ...(activeAlerts.map(alert => {
+    ...(activeTaskAlerts.map(alert => {
       const dueDate = new Date(alert.due_date);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -61,7 +66,14 @@ const NotificationCenter = ({
         time: timeText,
         read: false
       };
-    }) || [])
+    })),
+    ...(activeDocumentAlerts.map(alert => ({
+      id: `doc-alert-${alert.id}`,
+      message: `Document "${alert.name}" is ${alert.status === 'expired' ? 'expired' : 'expiring soon'}`,
+      type: alert.status === 'expired' ? 'danger' : 'warning',
+      time: alert.expiry_date || 'No expiry',
+      read: false
+    })) || [])
   ];
 
   const unreadCount = allNotifications.filter((n) => !n.read && !readNotifications.has(n.id)).length;

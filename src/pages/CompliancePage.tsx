@@ -346,9 +346,6 @@ const CompliancePage = () => {
 
         <div className="rounded-lg border border-border bg-card overflow-hidden">
           <div className="overflow-x-auto">
-            <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-secondary/30">
-              <span className="text-xs text-muted-foreground">Latest first</span>
-            </div>
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-secondary/30">
