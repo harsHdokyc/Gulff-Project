@@ -29,5 +29,24 @@ export default defineConfig(({ mode }) => {
       },
       dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime", "@tanstack/react-query", "@tanstack/query-core"],
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            // Vendor chunks
+            vendor: ['react', 'react-dom'],
+            router: ['react-router-dom'],
+            ui: ['@radix-ui/react-dialog', '@radix-ui/react-select', '@radix-ui/react-toast'],
+            utils: ['clsx', 'tailwind-merge', 'date-fns'],
+            // External libraries
+            supabase: ['@supabase/supabase-js'],
+            query: ['@tanstack/react-query'],
+            motion: ['framer-motion'],
+            icons: ['lucide-react'],
+          },
+        },
+      },
+      chunkSizeWarningLimit: 1000,
+    },
   };
 });
