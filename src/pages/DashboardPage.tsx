@@ -1,14 +1,24 @@
 import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Clock, Loader2, FileText, FileCheck, AlertCircle } from "lucide-react";
+import { Clock, Loader2, FileText, FileCheck } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useTasks, useTaskStats, useTaskAlerts, useToggleTaskStatus } from "@/hooks/useDashboardTasksQuery";
 import { useDocumentSummary, useDocumentAlerts } from "@/hooks/useDocumentSummaryQuery";
 import { useMarkDocumentComplete } from "@/hooks/useDocumentsQuery";
-import { documentStatusBadgeClass, documentStatusLabel } from "@/lib/documentStatus";
+import {
+  DOCUMENT_STATUS_FILTER_OPTIONS,
+  DOCUMENT_STATUS_LABELS,
+  documentStatusBadgeClass,
+  documentStatusLabel,
+  statusFilterValueToDbStatus,
+} from "@/lib/documentStatus";
 import type { Document } from "@/lib/documentService";
+import { DEFAULT_PAGE_SIZE, slicePage } from "@/lib/pagination";
+import { ListPaginationFooter } from "@/components/ListPaginationFooter";
+import { mergeUpcomingDeadlineRows, type DeadlineRow } from "@/lib/dashboardDeadlines";
+import { usePaginationSync } from "@/hooks/usePaginationSync";
 import { Task } from "@/lib/dashboardTasks";
 import {
   Tooltip,
@@ -17,10 +27,14 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-
+/** Dashboard deadlines omit completed documents entirely. */
+const DASHBOARD_DOCUMENT_STATUS_OPTIONS = DOCUMENT_STATUS_FILTER_OPTIONS.filter(
+  (opt) => opt.value !== DOCUMENT_STATUS_LABELS.complete
+);
 
 const DashboardPage = () => {
   const [priorityFilter, setPriorityFilter] = useState("all");
+  const [documentStatusFilter, setDocumentStatusFilter] = useState("all");
   const [completeOpen, setCompleteOpen] = useState(false);
   const [completingTask, setCompletingTask] = useState<Task | null>(null);
   const [documentCompleteOpen, setDocumentCompleteOpen] = useState(false);
@@ -39,9 +53,30 @@ const DashboardPage = () => {
     return tasks.filter(t => t.status === "pending" && t.priority === priorityFilter);
   }, [tasks, priorityFilter]);
 
-  const handleToggleTaskStatus = (task: Task) => {
-    toggleStatus(task);
-  };
+  const filteredDocuments = useMemo(() => {
+    const docs = (documentSummary?.documents ?? []).filter((d) => d.status !== "complete");
+    const dbStatus = statusFilterValueToDbStatus(documentStatusFilter);
+    if (!dbStatus) return docs;
+    return docs.filter((d) => d.status === dbStatus);
+  }, [documentSummary?.documents, documentStatusFilter]);
+
+  const mergedDeadlines = useMemo(
+    () => mergeUpcomingDeadlineRows(filteredTasks, filteredDocuments),
+    [filteredTasks, filteredDocuments]
+  );
+
+  const [deadlinePageIndex, setDeadlinePageIndex] = useState(0);
+  usePaginationSync(
+    setDeadlinePageIndex,
+    mergedDeadlines.length,
+    DEFAULT_PAGE_SIZE,
+    `${priorityFilter}|${documentStatusFilter}`
+  );
+
+  const pagedDeadlines = useMemo(
+    () => slicePage(mergedDeadlines, deadlinePageIndex, DEFAULT_PAGE_SIZE),
+    [mergedDeadlines, deadlinePageIndex]
+  );
 
   const openCompleteConfirmation = (task: Task) => {
     setCompletingTask(task);
@@ -120,22 +155,42 @@ const DashboardPage = () => {
     <AppLayout>
       <TooltipProvider>
         <div className="max-w-5xl mx-auto animate-fade-in">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between mb-6">
           <div>
             <h1 className="font-heading text-2xl font-semibold text-foreground">Dashboard</h1>
             <p className="text-sm text-muted-foreground mt-1">Overview of your compliance status.</p>
           </div>
-          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Priority" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Priorities</SelectItem>
-              <SelectItem value="high">High</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="low">Low</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-3 w-full sm:w-auto">
+            <div className="space-y-1 w-full sm:w-44">
+              <span className="text-xs text-muted-foreground">Compliance tasks</span>
+              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All priorities</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1 w-full sm:w-44">
+              <span className="text-xs text-muted-foreground">Documents</span>
+              <Select value={documentStatusFilter} onValueChange={setDocumentStatusFilter}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {DASHBOARD_DOCUMENT_STATUS_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -162,75 +217,100 @@ const DashboardPage = () => {
               <Clock className="h-4 w-4 text-muted-foreground" />
               <h2 className="text-sm font-medium text-foreground">Upcoming Deadlines</h2>
             </div>
-            <span className="text-xs text-muted-foreground">Latest first</span>
+            <span className="text-xs text-muted-foreground">Soonest first</span>
           </div>
           <div className="divide-y divide-border">
-            {/* Tasks */}
-            {filteredTasks.map((task) => (
-              <div key={task.id} className="px-4 py-3 flex items-center justify-between text-sm hover:bg-accent/50 transition-colors">
-                <span className="text-foreground">{task.type}</span>
-                <div className="flex items-center gap-4">
-                  <span className="text-muted-foreground hidden md:block">{task.due_date}</span>
-                  {task.notes && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="flex items-center gap-1 text-muted-foreground cursor-help">
-                          <FileText className="h-3 w-3" />
-                          <span className="text-xs hidden sm:inline">Notes</span>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs">
-                        <p className="text-sm">{task.notes}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  )}
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${
-                    task.priority === "high" ? "bg-destructive/10 text-destructive" :
-                    task.priority === "medium" ? "bg-warning/10 text-warning" :
-                    "bg-muted text-muted-foreground"
-                  }`}>
-                    {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => openCompleteConfirmation(task)}
-                    className="text-xs"
+            {pagedDeadlines.length === 0 ? (
+              <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                No tasks or documents match your filters.
+              </div>
+            ) : (
+              pagedDeadlines.map((row) =>
+                row.kind === "task" ? (
+                  <div
+                    key={`task-${row.task.id}`}
+                    className="px-4 py-3 flex items-center justify-between text-sm hover:bg-accent/50 transition-colors"
                   >
-                    Complete
-                  </Button>
-                </div>
-              </div>
-            ))}
-            
-            {/* Documents */}
-            {documentSummary?.upcomingDeadlines.map((doc) => (
-              <div key={doc.id} className="px-4 py-3 flex items-center justify-between text-sm hover:bg-accent/50 transition-colors">
-                <div className="flex items-center gap-2">
-                  <FileCheck className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-foreground">{doc.name}</span>
-                </div>
-                <div className="flex items-center gap-4">
-                  <span className="text-muted-foreground hidden md:block">{doc.expiry_date || 'No expiry'}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${documentStatusBadgeClass(doc.status)}`}>
-                    {documentStatusLabel(doc.status)}
-                  </span>
-                  {doc.status !== "complete" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => openDocumentCompleteConfirmation(doc)}
-                      className="text-xs"
-                      disabled={markDocumentComplete.isPending}
-                    >
-                      Complete
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
+                    <span className="text-foreground">{row.task.type}</span>
+                    <div className="flex items-center gap-4">
+                      <span className="text-muted-foreground hidden md:block">{row.task.due_date}</span>
+                      {row.task.notes && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex items-center gap-1 text-muted-foreground cursor-help">
+                              <FileText className="h-3 w-3" />
+                              <span className="text-xs hidden sm:inline">Notes</span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <p className="text-sm">{row.task.notes}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full ${
+                          row.task.priority === "high"
+                            ? "bg-destructive/10 text-destructive"
+                            : row.task.priority === "medium"
+                              ? "bg-warning/10 text-warning"
+                              : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {row.task.priority.charAt(0).toUpperCase() + row.task.priority.slice(1)}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openCompleteConfirmation(row.task)}
+                        className="text-xs"
+                      >
+                        Complete
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    key={`doc-${row.doc.id}`}
+                    className="px-4 py-3 flex items-center justify-between text-sm hover:bg-accent/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <FileCheck className="h-3 w-3 text-muted-foreground" />
+                      <span className="text-foreground">{row.doc.name}</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="text-muted-foreground hidden md:block">
+                        {row.doc.expiry_date || "No expiry"}
+                      </span>
+                      <span
+                        className={`text-xs px-2 py-0.5 rounded-full ${documentStatusBadgeClass(row.doc.status)}`}
+                      >
+                        {documentStatusLabel(row.doc.status)}
+                      </span>
+                      {row.doc.status !== "complete" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openDocumentCompleteConfirmation(row.doc)}
+                          className="text-xs"
+                          disabled={markDocumentComplete.isPending}
+                        >
+                          Complete
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )
+              )
+            )}
           </div>
         </div>
+
+        <ListPaginationFooter
+          total={mergedDeadlines.length}
+          pageIndex={deadlinePageIndex}
+          pageSize={DEFAULT_PAGE_SIZE}
+          onPageChange={setDeadlinePageIndex}
+        />
 
         {/* Complete Confirmation Dialog */}
         <Dialog open={completeOpen} onOpenChange={(o) => { setCompleteOpen(o); if (!o) setCompletingTask(null); }}>

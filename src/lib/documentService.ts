@@ -27,6 +27,18 @@ export interface UpdateDocumentData {
   expiry_date?: string
 }
 
+export interface GetDocumentsPageParams {
+  page: number
+  pageSize: number
+  search?: string
+  status?: Document['status']
+}
+
+export interface GetDocumentsPageResult {
+  documents: Document[]
+  total: number
+}
+
 class DocumentService {
   private static instance: DocumentService
 
@@ -45,6 +57,33 @@ class DocumentService {
 
     if (error) throw error
     return data || []
+  }
+
+  async getDocumentsPage(params: GetDocumentsPageParams): Promise<GetDocumentsPageResult> {
+    const { page, pageSize, search, status } = params
+    const safeSize = Math.min(Math.max(pageSize, 1), 100)
+    const from = Math.max(page, 0) * safeSize
+    const to = from + safeSize - 1
+
+    let query = supabase
+      .from('documents')
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: false })
+
+    if (search?.trim()) {
+      query = query.ilike('name', `%${search.trim()}%`)
+    }
+    if (status) {
+      query = query.eq('status', status)
+    }
+
+    const { data, error, count } = await query.range(from, to)
+
+    if (error) throw error
+    return {
+      documents: data || [],
+      total: count ?? 0,
+    }
   }
 
   async getDocument(id: string): Promise<Document | null> {

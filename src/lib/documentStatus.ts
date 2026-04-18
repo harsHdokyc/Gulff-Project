@@ -20,6 +20,15 @@ export const DOCUMENT_STATUS_FILTER_OPTIONS: { value: string; label: string }[] 
   ).map(([key, label]) => ({ value: label, label })),
 ];
 
+/** Maps status filter dropdown value → DB `documents.status` (`undefined` = no filter). */
+export function statusFilterValueToDbStatus(filterValue: string): DocumentStatusKey | undefined {
+  if (filterValue === "all") return undefined;
+  const found = (Object.entries(DOCUMENT_STATUS_LABELS) as [DocumentStatusKey, string][]).find(
+    ([, label]) => label === filterValue
+  );
+  return found?.[0];
+}
+
 function isDocumentStatusKey(s: string): s is DocumentStatusKey {
   return (
     s === "active" ||

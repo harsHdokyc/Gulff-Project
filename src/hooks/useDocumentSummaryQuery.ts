@@ -44,7 +44,6 @@ export function useDocumentSummary() {
             if (!b.expiry_date) return -1
             return new Date(a.expiry_date).getTime() - new Date(b.expiry_date).getTime()
           })
-          .slice(0, 5) // Show next 5 upcoming deadlines
       }
     },
   })

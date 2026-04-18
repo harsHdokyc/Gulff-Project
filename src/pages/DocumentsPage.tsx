@@ -1,20 +1,24 @@
 import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Eye, Trash2, Search, Edit } from "lucide-react";
-import { useState } from "react";
+import { useState, useDeferredValue } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { useDocuments, useCreateDocument, useUpdateDocument, useDeleteDocument, useMarkDocumentComplete } from "@/hooks/useDocumentsQuery";
+import { useDocumentsPage, useCreateDocument, useUpdateDocument, useDeleteDocument, useMarkDocumentComplete } from "@/hooks/useDocumentsQuery";
 import type { Document } from "@/lib/documentService";
 import { validateAlphabeticText, isValidAlphabeticInput, getMinDate } from "@/lib/formValidation";
 import {
   DOCUMENT_STATUS_FILTER_OPTIONS,
   documentStatusBadgeClass,
   documentStatusLabel,
+  statusFilterValueToDbStatus,
 } from "@/lib/documentStatus";
+import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
+import { ListPaginationFooter } from "@/components/ListPaginationFooter";
+import { usePaginationSync } from "@/hooks/usePaginationSync";
 
 const docTypeLabels: Record<string, string> = {
   "trade-license": "Trade License",
@@ -129,7 +133,25 @@ const DocForm = ({ form, setForm, onSubmit, label, errors = {}, onFieldChange, s
 );
 
 const DocumentsPage = () => {
-  const { documents, isLoading } = useDocuments();
+  const [search, setSearch] = useState("");
+  const deferredSearch = useDeferredValue(search);
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  const statusDb = statusFilterValueToDbStatus(statusFilter);
+
+  const [pageIndex, setPageIndex] = useState(0);
+  const { documents, total, isLoading, isFetching } = useDocumentsPage({
+    pageIndex,
+    pageSize: DEFAULT_PAGE_SIZE,
+    search: deferredSearch,
+    status: statusDb,
+  });
+  usePaginationSync(
+    setPageIndex,
+    total,
+    DEFAULT_PAGE_SIZE,
+    `${statusFilter}|${deferredSearch}`
+  );
   const createDocument = useCreateDocument();
   const updateDocument = useUpdateDocument();
   const deleteDocument = useDeleteDocument();
@@ -140,24 +162,11 @@ const DocumentsPage = () => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [completeOpen, setCompleteOpen] = useState(false);
   const [completingDoc, setCompletingDoc] = useState<Document | null>(null);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState<{ name?: string; type?: string; expiry?: string; file?: string }>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-
-  const filtered = documents.filter((doc) => {
-    if (statusFilter !== "all" && documentStatusLabel(doc.status) !== statusFilter) return false;
-    if (search && !doc.name.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
-
-  // Sort by created_at to show latest first
-  const sorted = [...filtered].sort((a, b) => 
-    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  );
 
   const validateForm = (isUpload: boolean = false) => {
     const newErrors: { name?: string; type?: string; expiry?: string; file?: string } = {};
@@ -300,13 +309,8 @@ const DocumentsPage = () => {
   return (
     <AppLayout>
       <div className="max-w-5xl mx-auto animate-fade-in">
-        {isLoading && (
-          <div className="flex items-center justify-center py-8">
-            <div className="text-muted-foreground">Loading documents...</div>
-          </div>
-        )}
         <div className="flex items-center justify-between mb-6">
-          <h1 className="font-heading text-2xl font-semibold text-foreground">Documents ({filtered.length})</h1>
+          <h1 className="font-heading text-2xl font-semibold text-foreground">Documents ({total})</h1>
           <Dialog open={addOpen} onOpenChange={(o) => { setAddOpen(o); if (!o) { setForm(emptyForm); setSelectedFile(null); } }}>
             <DialogTrigger asChild>
               <Button size="sm" disabled={isOperating}><CheckCircle className="h-4 w-4 mr-1" /> Upload Document</Button>
@@ -351,7 +355,9 @@ const DocumentsPage = () => {
           </Select>
         </div>
 
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <div
+          className={`rounded-lg border border-border bg-card overflow-hidden transition-opacity ${isFetching ? "opacity-80" : ""}`}
+        >
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -364,10 +370,14 @@ const DocumentsPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {sorted.length === 0 ? (
-                  <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">No documents found.</td></tr>
+                {documents.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                      {isLoading ? "Loading documents..." : "No documents found."}
+                    </td>
+                  </tr>
                 ) : (
-                  sorted.map((doc) => (
+                  documents.map((doc) => (
                     <tr key={doc.id} className="hover:bg-accent/50 transition-colors">
                       <td className="px-4 py-3 text-foreground font-medium">{doc.name}</td>
                       <td className="px-4 py-3 text-muted-foreground">{docTypeLabels[doc.type] || doc.type}</td>
@@ -430,6 +440,14 @@ const DocumentsPage = () => {
             </table>
           </div>
         </div>
+
+        <ListPaginationFooter
+          total={total}
+          pageIndex={pageIndex}
+          pageSize={DEFAULT_PAGE_SIZE}
+          onPageChange={setPageIndex}
+          disabled={isFetching}
+        />
 
         <Dialog open={editOpen} onOpenChange={(o) => { setEditOpen(o); if (!o) { setEditingId(null); setForm(emptyForm); } }}>
           <DialogContent>
