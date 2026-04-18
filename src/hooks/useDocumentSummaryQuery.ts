@@ -38,7 +38,7 @@ export function useDocumentSummary() {
         stats,
         alerts,
         upcomingDeadlines: documents
-          .filter(d => d.status !== 'complete')
+          .filter(d => d.status !== 'complete' && d.status !== 'expired')
           .sort((a, b) => {
             if (!a.expiry_date) return 1
             if (!b.expiry_date) return -1
@@ -99,20 +99,3 @@ export function useUpdateDocument() {
   })
 }
 
-export function useToggleDocumentStatus() {
-  const queryClient = useQueryClient()
-  const updateDocument = useUpdateDocument()
-
-  const toggleStatus = (document: any) => {
-    const newStatus = document.status === 'complete' ? 'active' : 'complete'
-    updateDocument.mutate({
-      id: document.id,
-      updates: { status: newStatus }
-    })
-  }
-
-  return {
-    toggleStatus,
-    isLoading: updateDocument.isPending
-  }
-}

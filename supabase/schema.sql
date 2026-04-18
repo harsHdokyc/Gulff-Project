@@ -1,7 +1,16 @@
 -- ========================================
 -- Compliance Guard Database Schema
 -- ========================================
-
+--
+-- WHEN TO RUN THIS FILE
+-- ----------------------
+-- Use ONLY on a brand-new / empty database (local reset, fresh project).
+-- If you already have a Supabase project with tables, DO NOT run this whole
+-- file in the SQL Editor — you will get: "relation ... already exists" (42P07).
+--
+-- For an existing database, apply changes via supabase/migrations/*.sql
+-- (e.g. incremental ALTER / CREATE OR REPLACE FUNCTION only).
+--
 -- Enable necessary extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
@@ -66,7 +75,7 @@ CREATE TABLE documents (
   file_path TEXT,
   file_size INTEGER,
   mime_type TEXT,
-  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'expiring-soon', 'expired')),
+  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'expiring-soon', 'expired', 'complete')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -296,7 +305,7 @@ BEGIN
   RETURN CASE 
     WHEN expiry_date IS NULL THEN 'active'
     WHEN expiry_date < CURRENT_DATE THEN 'expired'
-    WHEN expiry_date <= CURRENT_DATE + INTERVAL '30 days' THEN 'expiring-soon'
+    WHEN expiry_date <= CURRENT_DATE + INTERVAL '7 days' THEN 'expiring-soon'
     ELSE 'active'
   END;
 END;
@@ -328,7 +337,8 @@ RETURNS VOID AS $$
 BEGIN
   UPDATE documents 
   SET status = get_document_status(expiry_date)
-  WHERE status != get_document_status(expiry_date);
+  WHERE status <> 'complete'
+    AND status IS DISTINCT FROM get_document_status(expiry_date);
 END;
 $$ LANGUAGE plpgsql;
 

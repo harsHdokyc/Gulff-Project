@@ -5,7 +5,10 @@ import { useState, useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useTasks, useTaskStats, useTaskAlerts, useToggleTaskStatus } from "@/hooks/useDashboardTasksQuery";
-import { useDocumentSummary, useDocumentAlerts, useToggleDocumentStatus } from "@/hooks/useDocumentSummaryQuery";
+import { useDocumentSummary, useDocumentAlerts } from "@/hooks/useDocumentSummaryQuery";
+import { useMarkDocumentComplete } from "@/hooks/useDocumentsQuery";
+import { documentStatusBadgeClass, documentStatusLabel } from "@/lib/documentStatus";
+import type { Document } from "@/lib/documentService";
 import { Task } from "@/lib/dashboardTasks";
 import {
   Tooltip,
@@ -20,15 +23,15 @@ const DashboardPage = () => {
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [completeOpen, setCompleteOpen] = useState(false);
   const [completingTask, setCompletingTask] = useState<Task | null>(null);
-
+  const [documentCompleteOpen, setDocumentCompleteOpen] = useState(false);
+  const [completingDoc, setCompletingDoc] = useState<Document | null>(null);
   const { tasks, isLoading, error } = useTasks();
   const { data: taskStats } = useTaskStats();
   const { data: taskAlerts } = useTaskAlerts();
   const { toggleStatus } = useToggleTaskStatus();
   const { data: documentSummary } = useDocumentSummary();
   const { data: documentAlerts } = useDocumentAlerts();
-  const { toggleStatus: toggleDocumentStatus, isLoading: isDocumentLoading } = useToggleDocumentStatus();
-
+  const markDocumentComplete = useMarkDocumentComplete();
   // Filter tasks by priority for upcoming deadlines
   const filteredTasks = useMemo(() => {
     if (!tasks) return [];
@@ -50,6 +53,19 @@ const DashboardPage = () => {
       toggleStatus(completingTask);
       setCompleteOpen(false);
       setCompletingTask(null);
+    }
+  };
+
+  const openDocumentCompleteConfirmation = (doc: Document) => {
+    setCompletingDoc(doc);
+    setDocumentCompleteOpen(true);
+  };
+
+  const handleDocumentComplete = () => {
+    if (completingDoc) {
+      markDocumentComplete.mutate(completingDoc.id);
+      setDocumentCompleteOpen(false);
+      setCompletingDoc(null);
     }
   };
 
@@ -196,24 +212,16 @@ const DashboardPage = () => {
                 </div>
                 <div className="flex items-center gap-4">
                   <span className="text-muted-foreground hidden md:block">{doc.expiry_date || 'No expiry'}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${
-                    doc.status === 'active' ? 'bg-success/10 text-success' :
-                    doc.status === 'expiring-soon' ? 'bg-warning/10 text-warning' :
-                    doc.status === 'complete' ? 'bg-blue-500/10 text-blue-500' :
-                    'bg-destructive/10 text-destructive'
-                  }`}>
-                    {doc.status === 'active' ? 'Active' :
-                     doc.status === 'expiring-soon' ? 'Expiring Soon' :
-                     doc.status === 'complete' ? 'Complete' :
-                     'Expired'}
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${documentStatusBadgeClass(doc.status)}`}>
+                    {documentStatusLabel(doc.status)}
                   </span>
-                  {doc.status !== 'complete' && (
+                  {doc.status !== "complete" && (
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => toggleDocumentStatus(doc)}
+                      onClick={() => openDocumentCompleteConfirmation(doc)}
                       className="text-xs"
-                      disabled={isDocumentLoading}
+                      disabled={markDocumentComplete.isPending}
                     >
                       Complete
                     </Button>
@@ -245,6 +253,35 @@ const DashboardPage = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <Dialog
+          open={documentCompleteOpen}
+          onOpenChange={(o) => {
+            setDocumentCompleteOpen(o);
+            if (!o) setCompletingDoc(null);
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirm Completion</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <p className="text-sm text-muted-foreground">
+                Are you sure you want to mark the document "
+                <span className="font-medium text-foreground">{completingDoc?.name}</span>" as completed?
+              </p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDocumentCompleteOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleDocumentComplete} disabled={markDocumentComplete.isPending}>
+                Mark as Complete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
       </div>
       </TooltipProvider>
     </AppLayout>

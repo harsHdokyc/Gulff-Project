@@ -7,6 +7,7 @@ import {
 } from '@/lib/documentService'
 import { toast } from '@/hooks/use-toast'
 import { useEffect } from 'react'
+import { documentSummaryKeys } from '@/hooks/useDocumentSummaryQuery'
 
 export const documentKeys = {
   all: ['documents'] as const,
@@ -179,7 +180,8 @@ export function useMarkDocumentComplete() {
     mutationFn: (id: string) => documentService.markDocumentComplete(id),
     onSuccess: (updatedDocument) => {
       queryClient.invalidateQueries({ queryKey: documentKeys.list() })
-      
+      queryClient.invalidateQueries({ queryKey: documentSummaryKeys.all })
+
       toast({
         title: "Document completed",
         description: `"${updatedDocument.name}" has been marked as complete.`,
@@ -194,3 +196,4 @@ export function useMarkDocumentComplete() {
     },
   })
 }
+

@@ -2,7 +2,7 @@ import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Eye, Trash2, Search, Edit } from "lucide-react";
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -10,25 +10,11 @@ import { toast } from "@/hooks/use-toast";
 import { useDocuments, useCreateDocument, useUpdateDocument, useDeleteDocument, useMarkDocumentComplete } from "@/hooks/useDocumentsQuery";
 import type { Document } from "@/lib/documentService";
 import { validateAlphabeticText, isValidAlphabeticInput, getMinDate } from "@/lib/formValidation";
-
-interface Doc {
-  id: string;
-  name: string;
-  type: string;
-  expiry: string;
-  status: string;
-  fileName?: string;
-  file_path?: string;
-}
-
-const computeDocStatus = (expiry: string): string => {
-  const now = new Date();
-  const exp = new Date(expiry);
-  if (exp < now) return "Expired";
-  const diffDays = (exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-  if (diffDays <= 30) return "Expiring Soon";
-  return "Active";
-};
+import {
+  DOCUMENT_STATUS_FILTER_OPTIONS,
+  documentStatusBadgeClass,
+  documentStatusLabel,
+} from "@/lib/documentStatus";
 
 const docTypeLabels: Record<string, string> = {
   "trade-license": "Trade License",
@@ -148,11 +134,12 @@ const DocumentsPage = () => {
   const updateDocument = useUpdateDocument();
   const deleteDocument = useDeleteDocument();
   const markDocumentComplete = useMarkDocumentComplete();
-  
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [completeOpen, setCompleteOpen] = useState(false);
+  const [completingDoc, setCompletingDoc] = useState<Document | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [form, setForm] = useState(emptyForm);
@@ -162,16 +149,7 @@ const DocumentsPage = () => {
   const [isUploading, setIsUploading] = useState(false);
 
   const filtered = documents.filter((doc) => {
-    const statusMap = {
-      'active': 'Active',
-      'expiring-soon': 'Expiring Soon',
-      'expired': 'Expired',
-      'complete': 'Complete'
-    };
-    
-    const displayStatus = statusMap[doc.status];
-    
-    if (statusFilter !== "all" && displayStatus !== statusFilter) return false;
+    if (statusFilter !== "all" && documentStatusLabel(doc.status) !== statusFilter) return false;
     if (search && !doc.name.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
@@ -270,6 +248,19 @@ const DocumentsPage = () => {
     deleteDocument.mutate(id);
   };
   
+  const openCompleteConfirmation = (doc: Document) => {
+    setCompletingDoc(doc);
+    setCompleteOpen(true);
+  };
+
+  const handleComplete = () => {
+    if (completingDoc) {
+      markDocumentComplete.mutate(completingDoc.id);
+      setCompleteOpen(false);
+      setCompletingDoc(null);
+    }
+  };
+
   const previewDoc = async (doc: Document) => {
     if (doc.file_path) {
       try {
@@ -299,7 +290,12 @@ const DocumentsPage = () => {
     }
   };
 
-  const isOperating = createDocument.isPending || updateDocument.isPending || deleteDocument.isPending || markDocumentComplete.isPending || isUploading;
+  const isOperating =
+    createDocument.isPending ||
+    updateDocument.isPending ||
+    deleteDocument.isPending ||
+    markDocumentComplete.isPending ||
+    isUploading;
 
   return (
     <AppLayout>
@@ -346,11 +342,11 @@ const DocumentsPage = () => {
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Status" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="Active">Active</SelectItem>
-              <SelectItem value="Expiring Soon">Expiring Soon</SelectItem>
-              <SelectItem value="Expired">Expired</SelectItem>
-              <SelectItem value="Complete">Complete</SelectItem>
+              {DOCUMENT_STATUS_FILTER_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -377,17 +373,11 @@ const DocumentsPage = () => {
                       <td className="px-4 py-3 text-muted-foreground">{docTypeLabels[doc.type] || doc.type}</td>
                       <td className="px-4 py-3 text-muted-foreground">{doc.expiry_date || 'No expiry'}</td>
                       <td className="px-4 py-3">
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${
-                          doc.status === "active" ? "bg-success/10 text-success" :
-                          doc.status === "expiring-soon" ? "bg-warning/10 text-warning" :
-                          doc.status === "complete" ? "bg-success/10 text-success" :
-                          "bg-destructive/10 text-destructive"
-                        }`}>{
-                          doc.status === "complete" ? "Complete" :
-                          doc.status === "active" ? "Active" :
-                          doc.status === "expiring-soon" ? "Expiring Soon" :
-                          "Expired"
-                        }</span>
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded-full ${documentStatusBadgeClass(doc.status)}`}
+                        >
+                          {documentStatusLabel(doc.status)}
+                        </span>
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
@@ -398,9 +388,10 @@ const DocumentsPage = () => {
                           >
                             <Eye className="h-3.5 w-3.5" />
                           </button>
-                          {doc.status !== 'complete' && (
-                            <button 
-                              onClick={() => markDocumentComplete.mutate(doc.id)} 
+                          {doc.status !== "complete" && (
+                            <button
+                              type="button"
+                              onClick={() => openCompleteConfirmation(doc)}
                               className="p-1.5 rounded-md text-muted-foreground hover:text-green-600 transition-colors"
                               disabled={isOperating}
                               title="Mark as complete"
@@ -410,22 +401,22 @@ const DocumentsPage = () => {
                           )}
                           <button 
                             onClick={() => openEdit(doc)} 
-                            disabled={doc.status === 'complete' || isOperating}
+                            disabled={doc.status === "complete" || isOperating}
                             className={`p-1.5 rounded-md transition-colors ${
-                              doc.status === 'complete' 
-                                ? 'text-muted-foreground/50 cursor-not-allowed' 
-                                : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                              doc.status === "complete"
+                                ? "text-muted-foreground/50 cursor-not-allowed"
+                                : "text-muted-foreground hover:text-foreground hover:bg-accent"
                             }`}
                           >
                             <Edit className="h-3.5 w-3.5" />
                           </button>
                           <button 
                             onClick={() => deleteDoc(doc.id)} 
-                            disabled={doc.status === 'complete' || isOperating}
+                            disabled={doc.status === "complete" || isOperating}
                             className={`p-1.5 rounded-md transition-colors ${
-                              doc.status === 'complete' 
-                                ? 'text-muted-foreground/50 cursor-not-allowed' 
-                                : 'text-muted-foreground hover:text-destructive hover:bg-accent'
+                              doc.status === "complete"
+                                ? "text-muted-foreground/50 cursor-not-allowed"
+                                : "text-muted-foreground hover:text-destructive hover:bg-accent"
                             }`}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -462,6 +453,33 @@ const DocumentsPage = () => {
             )}
           </DialogContent>
         </Dialog>
+
+        <Dialog
+          open={completeOpen}
+          onOpenChange={(o) => {
+            setCompleteOpen(o);
+            if (!o) setCompletingDoc(null);
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirm Completion</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <p className="text-sm text-muted-foreground">
+                Are you sure you want to mark the document "
+                <span className="font-medium text-foreground">{completingDoc?.name}</span>" as completed?
+              </p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCompleteOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleComplete}>Mark as Complete</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
       </div>
     </AppLayout>
   );
