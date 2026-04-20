@@ -6,6 +6,32 @@ export const companyKeys = {
   all: ['company'] as const,
   user: (userId: string) => [...companyKeys.all, 'user', userId] as const,
   name: (userId: string) => [...companyKeys.user(userId), 'name'] as const,
+  profileRole: (userId: string) =>
+    [...companyKeys.all, 'profileRole', userId] as const,
+}
+
+/** Current row in `public.users` — used for nav (e.g. hide User Management from employees). */
+export function useCurrentUserRole(userId?: string) {
+  return useQuery({
+    queryKey: companyKeys.profileRole(userId || ''),
+    queryFn: async () => {
+      if (!userId) return null
+
+      const { data, error } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', userId)
+        .maybeSingle()
+
+      if (error) throw error
+      return (data?.role as string | undefined) ?? null
+    },
+    enabled: !!userId,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: 2,
+    refetchOnWindowFocus: false,
+  })
 }
 
 // Hook to get company name with proper caching

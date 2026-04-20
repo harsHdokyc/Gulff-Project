@@ -1,0 +1,7 @@
+# Edge Functions config (see https://supabase.com/docs/guides/functions/function-configuration)
+#
+# Session JWTs may use ES256; platform JWT verification only supports HS256 at the gateway.
+# We validate the Bearer token inside company-user-admin via admin.auth.getUser(jwt).
+
+[functions.company-user-admin]
+verify_jwt = false

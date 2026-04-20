@@ -14,7 +14,7 @@ const SignInPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isSendingReset, setIsSendingReset] = useState(false);
   const { isDark, toggle } = useTheme();
-  const { signIn, isSigningIn } = useAuthContext();
+  const { signIn, isSigningIn, refreshAuth } = useAuthContext();
   const navigate = useNavigate();
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -27,11 +27,12 @@ const SignInPage = () => {
       });
       
       if (result.success) {
+        await refreshAuth();
         toast({
           title: "Welcome back",
           description: "Signing you in..."
         });
-        // Navigation will be handled by auth state change
+        // AuthGuard redirects once user is in cache (see useAuthQuery hydrateUserFromSession)
       } else {
         toast({
           title: "Sign in failed",

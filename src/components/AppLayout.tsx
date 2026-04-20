@@ -1,19 +1,25 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Shield, Users, FileText, Settings, Menu, Sun, Moon, LogOut } from "lucide-react";
+import { LayoutDashboard, Shield, Users, FileText, Settings, UserPlus, Menu, Sun, Moon, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import NotificationCenter from "@/components/NotificationCenter";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { useCompanyName } from "@/hooks/useCompanyQuery";
+import { useCompanyName, useCurrentUserRole } from "@/hooks/useCompanyQuery";
 
 const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
   { label: "Compliance", icon: Shield, path: "/compliance" },
   { label: "Employees", icon: Users, path: "/employees" },
   { label: "Documents", icon: FileText, path: "/documents" },
+  {
+    label: "User Management",
+    icon: UserPlus,
+    path: "/user-management",
+    hideForEmployee: true,
+  },
   { label: "Settings", icon: Settings, path: "/settings" },
-];
+] as const;
 
 const AppLayout = ({ children }: { children: ReactNode }) => {
   const location = useLocation();
@@ -21,6 +27,14 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
   const { isDark, toggle: toggleTheme } = useTheme();
   const { user, signOut, isSigningOut } = useAuthContext();
   const { data: companyName, isLoading: isCompanyLoading } = useCompanyName(user?.id);
+  const { data: profileRole, isLoading: isRoleLoading } = useCurrentUserRole(user?.id);
+
+  const visibleNavItems = navItems.filter((item) => {
+    if (!("hideForEmployee" in item) || !item.hideForEmployee) return true;
+    if (isRoleLoading) return false;
+    // Hide User Management from both employees and pros - only owners can see it
+    return profileRole === "owner";
+  });
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -34,7 +48,7 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
           </span>
         </div>
         <nav className="p-2 space-y-0.5">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const active = location.pathname === item.path;
             return (
               <Link

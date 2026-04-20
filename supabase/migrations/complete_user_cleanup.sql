@@ -198,7 +198,7 @@ ALTER TABLE user_audit_log ENABLE ROW LEVEL SECURITY;
 -- Policy for audit log (only company admins can view)
 CREATE POLICY "Company admins can view audit log" ON user_audit_log
   FOR SELECT USING (
-    company_id IN (SELECT company_id FROM users WHERE id = auth.uid() AND role IN ('owner', 'admin'))
+    company_id IN (SELECT company_id FROM users WHERE id = auth.uid() AND role IN ('owner', 'pro'))
   );
 
 -- ========================================

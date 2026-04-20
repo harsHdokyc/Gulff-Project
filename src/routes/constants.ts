@@ -18,6 +18,7 @@ export const ROUTES = {
     EMPLOYEES: '/employees',
     DOCUMENTS: '/documents',
     SETTINGS: '/settings',
+    USER_MANAGEMENT: '/user-management',
   },
 } as const;
 

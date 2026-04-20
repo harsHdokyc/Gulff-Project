@@ -10,8 +10,9 @@ export interface AuthState {
 export interface SignUpData {
   email: string
   password: string
-  company: string
+  company?: string
   whatsapp?: string
+  role?: 'owner' | 'pro'
 }
 
 export interface SignInData {
@@ -118,15 +119,27 @@ export class AuthService {
         return { success: false, error: 'An account with this email already exists. Please sign in instead.' }
       }
       
+      // Prepare user metadata based on role
+      const userMetadata: any = {
+        onboarding_completed: false,
+      }
+      
+      // Add role-specific metadata
+      if (data.role === 'owner') {
+        userMetadata.company = data.company
+        userMetadata.whatsapp = data.whatsapp
+        // Owners will get role assigned by DB trigger
+      } else if (data.role === 'pro') {
+        // PRO users get role assigned directly and skip onboarding
+        userMetadata.role = 'pro'
+        userMetadata.onboarding_completed = true // PROs don't need onboarding
+      }
+      
       const { error } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
         options: {
-          data: {
-            company: data.company,
-            whatsapp: data.whatsapp,
-            onboarding_completed: false
-          }
+          data: userMetadata
         }
       })
 
@@ -256,7 +269,7 @@ export class AuthService {
       const { data, error } = await Promise.race([
         supabase
           .from('users')
-          .select('onboarding_completed')
+          .select('onboarding_completed, company_id, role')
           .eq('id', userId)
           .maybeSingle(),
         timeoutPromise
@@ -266,6 +279,11 @@ export class AuthService {
         // If it's a permission error or table doesn't exist, fall back to auth metadata.
         if (error.code === 'PGRST301' || error.code === '42P01') {
           const { data: authData } = await supabase.auth.getUser()
+          const userRole = authData.user?.user_metadata?.role
+          // PRO users are considered onboarded by default
+          if (userRole === 'pro') {
+            return true
+          }
           return !!authData.user?.user_metadata?.onboarding_completed
         }
         return false
@@ -275,10 +293,29 @@ export class AuthService {
       // In that case, fall back to auth metadata instead of trying to insert a row.
       if (!data) {
         const { data: authData } = await supabase.auth.getUser()
+        const userRole = authData.user?.user_metadata?.role
+        // PRO users are considered onboarded by default
+        if (userRole === 'pro') {
+          return true
+        }
         return !!authData.user?.user_metadata?.onboarding_completed
       }
 
-      return data.onboarding_completed || false
+      // Owners complete the company onboarding wizard (flag below).
+      // Employees / PRO invited by an owner already belong to a company — skip onboarding.
+      // Self-serve PRO users are also considered onboarded.
+      // Merge JWT metadata: if the DB trigger once stored self-serve PRO as owner, metadata still says pro.
+      const { data: authRow } = await supabase.auth.getUser()
+      const metaRole = authRow.user?.user_metadata?.role
+      const metaOnboarding = !!authRow.user?.user_metadata?.onboarding_completed
+
+      const invitedMember =
+        !!data.company_id &&
+        (data.role === 'employee' || data.role === 'pro')
+
+      const isPro = data.role === 'pro' || metaRole === 'pro'
+
+      return !!(data.onboarding_completed || metaOnboarding || invitedMember || isPro)
     } catch (error) {
       // If any exception occurs, assume not onboarded rather than hanging
       return false

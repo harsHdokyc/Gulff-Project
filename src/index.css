@@ -122,6 +122,21 @@
   html {
     scroll-behavior: smooth;
   }
+
+  /* Native date picker icon (Chromium/WebKit): dark on light UI, inverted (light) on dark UI. */
+  html:not(.dark) input[type="date"]::-webkit-calendar-picker-indicator,
+  html:not(.dark) input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    filter: none;
+    opacity: 1;
+  }
+
+  html.dark input[type="date"]::-webkit-calendar-picker-indicator,
+  html.dark input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    filter: invert(1);
+    opacity: 0.9;
+  }
 }
 
 @layer utilities {

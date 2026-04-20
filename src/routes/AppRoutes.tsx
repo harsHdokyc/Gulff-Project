@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { lazy, Suspense } from "react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { ExcludeRolesRoute } from "@/components/ExcludeRolesRoute";
 import { AuthGuard } from "@/components/AuthGuard";
 import { ROUTES } from "./constants";
 
@@ -34,6 +35,7 @@ const CompliancePage = lazy(() => import("@/pages/CompliancePage"));
 const EmployeesPage = lazy(() => import("@/pages/EmployeesPage"));
 const DocumentsPage = lazy(() => import("@/pages/DocumentsPage"));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
+const UserManagementPage = lazy(() => import("@/pages/UserManagementPage"));
 
 export function AppRoutes() {
   const { user, loading, isOnboarded } = useAuthContext();
@@ -160,6 +162,18 @@ export function AppRoutes() {
             <Suspense fallback={<PageLoader />}>
               <SettingsPage />
             </Suspense>
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path={ROUTES.PROTECTED.USER_MANAGEMENT} 
+        element={
+          <ProtectedRoute requireOnboarding={true}>
+            <ExcludeRolesRoute excludeRoles={["employee", "pro"]}>
+              <Suspense fallback={<PageLoader />}>
+                <UserManagementPage />
+              </Suspense>
+            </ExcludeRolesRoute>
           </ProtectedRoute>
         } 
       />

@@ -34,7 +34,7 @@ CREATE TABLE users (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   email TEXT UNIQUE NOT NULL,
   company_id UUID REFERENCES companies(id) ON DELETE CASCADE,
-  role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('owner', 'admin', 'member')),
+  role TEXT NOT NULL DEFAULT 'employee' CHECK (role IN ('owner', 'pro', 'employee')),
   full_name TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -165,13 +165,11 @@ CREATE POLICY "Company members can insert tasks" ON compliance_tasks
 
 CREATE POLICY "Company members can update tasks" ON compliance_tasks
   FOR UPDATE USING (company_id IN (
-    SELECT company_id FROM users WHERE id = auth.uid()
+    SELECT company_id FROM users WHERE id = auth.uid() AND role IN ('owner', 'pro')
   ));
 
 CREATE POLICY "Company members can delete tasks" ON compliance_tasks
-  FOR DELETE USING (company_id IN (
-    SELECT company_id FROM users WHERE id = auth.uid()
-  ));
+  FOR DELETE USING (company_id IN (SELECT company_id FROM users WHERE id = auth.uid() AND role IN ('owner', 'pro')));
 
 -- Employees: Company members can manage employees
 CREATE POLICY "Company members can view employees" ON employees

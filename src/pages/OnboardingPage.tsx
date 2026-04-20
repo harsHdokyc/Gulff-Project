@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -41,10 +42,15 @@ const OnboardingPage = () => {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Check if user should be here
+  // Check if user should be here and prefill company name
   useEffect(() => {
     if (user && user.user_metadata?.onboarding_completed) {
       navigate("/dashboard", { replace: true });
+    }
+    
+    // Prefill company name from user metadata
+    if (user?.user_metadata?.company) {
+      setCompanyName(user.user_metadata.company);
     }
   }, [user, navigate]);
 
@@ -266,13 +272,8 @@ const OnboardingPage = () => {
                 <Input 
                   placeholder="Acme Corp" 
                   value={companyName} 
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    if (isValidAlphanumericInput(value)) {
-                      setCompanyName(validateAlphanumericText(value));
-                    }
-                  }} 
-                  disabled={loading} 
+                  disabled={true} // Always disabled since it's prefilled from signup
+                  className="bg-muted/50"
                 />
               </div>
               <div className="space-y-2">

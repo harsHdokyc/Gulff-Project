@@ -55,7 +55,7 @@ export function useAuthOptimized() {
   const { data: isOnboarded, isLoading: isOnboardingLoading } = useOnboardingStatusOptimized(user?.id)
   
   // Combined loading state
-  const loading = isUserLoading || (user && isOnboardingLoading)
+  const loading = isUserLoading || (!!user && isOnboardingLoading)
   
   // Combined auth state
   const authState: AuthState = {
@@ -89,21 +89,24 @@ export function useAuthOptimized() {
     },
   })
 
-  // Sign in mutation with optimistic updates
+  const hydrateUserFromSession = useCallback(async () => {
+    const {
+      data: { user: u },
+    } = await supabase.auth.getUser()
+    if (u) {
+      queryClient.setQueryData(authKeys.user(), u)
+    }
+    return u
+  }, [queryClient])
+
+  // Sign in mutation – avoid optimistic null so AuthGuard sees the user as soon as the session exists
   const signInMutation = useMutation({
     mutationFn: (data: SignInData) => authService.signIn(data),
-    onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: authKeys.user() })
-      const previousUser = queryClient.getQueryData(authKeys.user())
-      queryClient.setQueryData(authKeys.user(), null)
-      return { previousUser }
+    onSuccess: async () => {
+      await hydrateUserFromSession()
+      await queryClient.invalidateQueries({ queryKey: authKeys.user() })
     },
-    onError: (error, variables, context) => {
-      if (context?.previousUser) {
-        queryClient.setQueryData(authKeys.user(), context.previousUser)
-      }
-    },
-    onSettled: () => {
+    onError: () => {
       queryClient.invalidateQueries({ queryKey: authKeys.user() })
     },
   })
@@ -139,8 +142,9 @@ export function useAuthOptimized() {
   const verifyOTPMutation = useMutation({
     mutationFn: ({ token, email }: { token: string; email: string }) => 
       authService.verifyOTP(token, email),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: authKeys.user() })
+    onSuccess: async () => {
+      await hydrateUserFromSession()
+      await queryClient.invalidateQueries({ queryKey: authKeys.user() })
     },
   })
 
