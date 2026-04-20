@@ -4,7 +4,7 @@ import { LayoutDashboard, Shield, Users, FileText, Settings, UserPlus, Menu, Sun
 import { Button } from "@/components/ui/button";
 import NotificationCenter from "@/components/NotificationCenter";
 import { useTheme } from "@/hooks/useTheme";
-import { useAuthContext } from "@/contexts/AuthContext";
+import { useAuthContext } from "@/modules/auth/components/AuthContext";
 import { useCompanyName, useCurrentUserRole } from "@/hooks/useCompanyQuery";
 
 const navItems = [

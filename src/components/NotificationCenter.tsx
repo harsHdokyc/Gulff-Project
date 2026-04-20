@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Bell, AlertTriangle, Clock, X, Check } from "lucide-react";
-import { useTaskAlerts, useTasks } from "@/hooks/useDashboardTasksQuery";
-import { useDocumentAlerts } from "@/hooks/useDocumentSummaryQuery";
+import { useTaskAlerts, useTasks } from "@/modules/dashboard/hooks/useDashboardTasksQuery";
+import { useDocumentAlerts } from "@/modules/documents/hooks/useDocumentSummaryQuery";
 
 export interface Notification {
   id: string;

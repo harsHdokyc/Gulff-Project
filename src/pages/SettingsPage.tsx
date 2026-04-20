@@ -3,11 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect } from "react";
-import { useAuthContext } from "@/contexts/AuthContext";
+import { useAuthContext } from "@/modules/auth/components/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import { validateAlphabeticText, isValidAlphabeticInput } from "@/lib/formValidation";
+import { validateAlphabeticText, isValidAlphabeticInput } from "@/modules/auth/services/formValidation";
 
 interface CompanyData {
   id: string;

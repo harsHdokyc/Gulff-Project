@@ -1,9 +1,9 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { lazy, Suspense } from "react";
-import { useAuthContext } from "@/contexts/AuthContext";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { ExcludeRolesRoute } from "@/components/ExcludeRolesRoute";
-import { AuthGuard } from "@/components/AuthGuard";
+import { useAuthContext } from "@/modules/auth/components/AuthContext";
+import { ProtectedRoute } from "@/modules/auth/components/ProtectedRoute";
+import { ExcludeRolesRoute } from "@/modules/auth/components/ExcludeRolesRoute";
+import { AuthGuard } from "@/modules/auth/components/AuthGuard";
 import { ROUTES } from "./constants";
 
 // Loading component
@@ -24,18 +24,18 @@ const TermsPage = lazy(() => import("@/pages/TermsPage"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 
 // Lazy loaded Auth Components
-const SignUpPage = lazy(() => import("@/pages/SignUpPage"));
-const SignInPage = lazy(() => import("@/pages/SignInPage"));
-const ResetPasswordPage = lazy(() => import("@/pages/ResetPasswordPage"));
+const SignUpPage = lazy(() => import("@/modules/auth/components/SignUpPage"));
+const SignInPage = lazy(() => import("@/modules/auth/components/SignInPage"));
+const ResetPasswordPage = lazy(() => import("@/modules/auth/components/ResetPasswordPage"));
 
 // Lazy loaded Protected Components
-const OnboardingPage = lazy(() => import("@/pages/OnboardingPage"));
-const DashboardPage = lazy(() => import("@/pages/DashboardPage"));
-const CompliancePage = lazy(() => import("@/pages/CompliancePage"));
-const EmployeesPage = lazy(() => import("@/pages/EmployeesPage"));
-const DocumentsPage = lazy(() => import("@/pages/DocumentsPage"));
+const OnboardingPage = lazy(() => import("@/modules/auth/components/OnboardingPage"));
+const DashboardPage = lazy(() => import("@/modules/dashboard/components/DashboardPage"));
+const CompliancePage = lazy(() => import("@/modules/compliance/components/CompliancePage"));
+const EmployeesPage = lazy(() => import("@/modules/user-management/components/EmployeesPage"));
+const DocumentsPage = lazy(() => import("@/modules/documents/components/DocumentsPage"));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
-const UserManagementPage = lazy(() => import("@/pages/UserManagementPage"));
+const UserManagementPage = lazy(() => import("@/modules/user-management/components/UserManagementPage"));
 
 export function AppRoutes() {
   const { user, loading, isOnboarded } = useAuthContext();
