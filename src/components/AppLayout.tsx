@@ -1,11 +1,12 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Shield, Users, FileText, Settings, UserPlus, Menu, Sun, Moon, LogOut } from "lucide-react";
+import { LayoutDashboard, Shield, Users, FileText, Settings, UserPlus, Menu, Sun, Moon, LogOut, Inbox } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import NotificationCenter from "@/components/NotificationCenter";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuthContext } from "@/modules/auth/components/AuthContext";
-import { useCompanyName, useCurrentUserRole } from "@/hooks/useCompanyQuery";
+import { useCompanyName, useCurrentUserRole, useProCompanies } from "@/hooks/useCompanyQuery";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const navItems = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
@@ -18,6 +19,12 @@ const navItems = [
     path: "/user-management",
     hideForEmployee: true,
   },
+  {
+    label: "Association Requests",
+    icon: Inbox,
+    path: "/association-requests",
+    onlyForPro: true,
+  },
   { label: "Settings", icon: Settings, path: "/settings" },
 ] as const;
 
@@ -28,8 +35,21 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
   const { user, signOut, isSigningOut } = useAuthContext();
   const { data: companyName, isLoading: isCompanyLoading } = useCompanyName(user?.id);
   const { data: profileRole, isLoading: isRoleLoading } = useCurrentUserRole(user?.id);
+  const { data: proCompanies, isLoading: isProCompaniesLoading } = useProCompanies(user?.id);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
+
+  useEffect(() => {
+    if (profileRole !== "pro") return;
+    if (!proCompanies || proCompanies.length === 0) return;
+    if (selectedCompanyId) return;
+    setSelectedCompanyId(proCompanies[0].id);
+  }, [profileRole, proCompanies, selectedCompanyId]);
 
   const visibleNavItems = navItems.filter((item) => {
+    if ("onlyForPro" in item && item.onlyForPro) {
+      if (isRoleLoading) return false;
+      return profileRole === "pro";
+    }
     if (!("hideForEmployee" in item) || !item.hideForEmployee) return true;
     if (isRoleLoading) return false;
     // Hide User Management from both employees and pros - only owners can see it
@@ -79,9 +99,41 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
             >
               <Menu className="h-5 w-5" />
             </button>
-            <span className="text-sm text-muted-foreground hidden md:block">
-              {isCompanyLoading ? "Loading..." : companyName || "No Company"}
-            </span>
+            {profileRole === "pro" ? (
+              <div className="hidden md:block">
+                {isProCompaniesLoading ? (
+                  <span className="text-sm text-muted-foreground">Loading...</span>
+                ) : (
+                  <Select
+                    value={selectedCompanyId}
+                    onValueChange={setSelectedCompanyId}
+                    disabled={!proCompanies || proCompanies.length === 0}
+                  >
+                    <SelectTrigger className="text-sm text-muted-foreground w-48">
+                      <SelectValue placeholder={proCompanies && proCompanies.length > 0 ? "Select Company" : "No Companies Linked"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {proCompanies && proCompanies.length > 0 ? (
+                        proCompanies.map((company) => (
+                          <SelectItem key={company.id} value={company.id}>
+                            {company.name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="no-company" disabled>
+                          No companies linked
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            ) : (
+              // Business owner: Show single company name
+              <span className="text-sm text-muted-foreground hidden md:block">
+                {isCompanyLoading ? "Loading..." : companyName || "No Company"}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <NotificationCenter />

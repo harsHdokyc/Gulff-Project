@@ -346,7 +346,7 @@ const LandingPage = () => {
             transition={{ delay: 1, duration: 0.8 }}
             className="mt-8 max-w-xl text-lg md:text-xl text-muted-foreground leading-relaxed"
           >
-            The modern operating system for regulatory work. Track everything, miss nothing, and feel in control — without the spreadsheet chaos.
+            The modern operating system for regulatory work. Track everything, miss nothing, and feel in control without the spreadsheet chaos.
           </motion.p>
 
           <motion.div
@@ -453,7 +453,7 @@ const LandingPage = () => {
                   Numbers that <span className="text-gradient-primary">speak for themselves.</span>
                 </h2>
                 <p className="mt-5 text-muted-foreground max-w-md leading-relaxed">
-                  Real metrics from teams running their compliance on autopilot — every day, in every region.
+                  Real metrics from teams running their compliance on autopilot every day, in every region.
                 </p>
                 <div className="mt-8 flex items-center gap-3">
                   <div className="flex -space-x-2">
@@ -541,7 +541,7 @@ const LandingPage = () => {
                   <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Flagship</span>
                 </div>
                 <h3 className="font-heading text-3xl md:text-4xl font-bold mt-4 max-w-md">Track every obligation. Miss nothing.</h3>
-                <p className="text-muted-foreground mt-3 max-w-md leading-relaxed">A unified command center for filings, renewals, and audits — across teams, regions, and entities.</p>
+                <p className="text-muted-foreground mt-3 max-w-md leading-relaxed">A unified command center for filings, renewals, and audits across teams, regions, and entities.</p>
 
                 {/* live mock UI */}
                 <div className="mt-auto pt-6 grid grid-cols-3 gap-3">
@@ -773,11 +773,6 @@ const LandingPage = () => {
               ))}
               <div className="shrink-0 w-[15vw]" />
             </motion.div>
-          </div>
-
-          {/* hint */}
-          <div className="relative container mx-auto px-6 pb-8 text-center">
-            <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground/60">Scroll to advance →</p>
           </div>
         </div>
       </section>

@@ -1,6 +1,6 @@
 import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Search, Edit, Trash2, UserPlus, Users, Eye, EyeOff } from "lucide-react";
+import { Search, Edit, Trash2, UserPlus, Users } from "lucide-react";
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -11,33 +11,29 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuthContext } from "@/modules/auth/components/AuthContext";
 import {
-  CREATE_USER_PASSWORD_MAX_LENGTH,
-  CREATE_USER_PASSWORD_MIN_LENGTH,
-  type CreateUserData,
   type User,
 } from "@/modules/user-management/services/userManagementService";
-import { validateAlphabeticText, isValidAlphabeticInput } from "@/modules/auth/services/formValidation";
 import { SimplePagination } from "@/components/Pagination";
 import { useServerPagination } from "@/hooks/useServerPagination";
 import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 import { useDeferredValue } from "react";
 import {
   useManagedUsers,
-  useCreateManagedUser,
   useUpdateManagedUser,
   useDeleteManagedUser,
+  useProSearch,
+  useCreateProAssociationRequest,
+  useBusinessAssociationRequests,
 } from "@/modules/user-management/hooks/useUserManagementQuery";
+import {
+  type ProSearchResult,
+  type CreateProAssociationRequest,
+} from "@/modules/user-management/services/userManagementService";
 
-// Constants
-const USER_ROLES = [
-  { value: 'pro', label: 'Pro', description: 'Can manage multiple businesses' },
-  { value: 'employee', label: 'Employee', description: 'Basic access to business data' }
-];
 
 const ROLE_BADGE_VARIANTS = {
   owner: 'default',
-  pro: 'secondary',
-  employee: 'outline'
+  pro: 'secondary'
 } as const;
 
 // Helper functions
@@ -53,40 +49,15 @@ const validateName = (name: string): boolean => {
   return name.trim().length >= 2 && name.trim().length <= 100;
 };
 
-const validateCreateUserForm = (
-  data: CreateUserData,
-  confirmPassword: string
+const validateProAssociationForm = (
+  proEmail: string
 ): { isValid: boolean; errors: Record<string, string> } => {
   const errors: Record<string, string> = {};
 
-  if (!data.email.trim()) {
-    errors.email = 'Email is required';
-  } else if (!validateEmail(data.email)) {
-    errors.email = 'Please enter a valid email address';
-  }
-
-  if (!data.full_name.trim()) {
-    errors.full_name = 'Full name is required';
-  } else if (!validateName(data.full_name)) {
-    errors.full_name = 'Full name must be between 2 and 100 characters';
-  }
-
-  if (!['pro', 'employee'].includes(data.role)) {
-    errors.role = 'Please select a valid role';
-  }
-
-  if (!data.password) {
-    errors.password = 'Password is required';
-  } else if (data.password.length < CREATE_USER_PASSWORD_MIN_LENGTH) {
-    errors.password = `Password must be at least ${CREATE_USER_PASSWORD_MIN_LENGTH} characters`;
-  } else if (data.password.length > CREATE_USER_PASSWORD_MAX_LENGTH) {
-    errors.password = `Password must be at most ${CREATE_USER_PASSWORD_MAX_LENGTH} characters`;
-  }
-
-  if (!confirmPassword) {
-    errors.confirmPassword = 'Please confirm the password';
-  } else if (confirmPassword !== data.password) {
-    errors.confirmPassword = 'Passwords do not match';
+  if (!proEmail.trim()) {
+    errors.proEmail = 'PRO email is required';
+  } else if (!validateEmail(proEmail)) {
+    errors.proEmail = 'Please enter a valid email address';
   }
 
   return {
@@ -125,25 +96,27 @@ const UserManagementPage = () => {
   const users = usersData?.users ?? [];
   const total = usersData?.total ?? 0;
 
-  const createUser = useCreateManagedUser(authUserId);
   const updateUser = useUpdateManagedUser(authUserId);
   const deleteUser = useDeleteManagedUser(authUserId);
+  const createProAssociation = useCreateProAssociationRequest(authUserId);
+  const { data: associationRequests } = useBusinessAssociationRequests(authUserId);
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [selectedRole, setSelectedRole] = useState<'pro' | 'employee' | null>(null);
-  const [isRoleSelectionStep, setIsRoleSelectionStep] = useState(true);
   
-  // Form state
-  const [newUser, setNewUser] = useState<CreateUserData>({
-    email: '',
-    role: 'employee',
-    full_name: '',
-    password: '',
-  });
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  // PRO Association Form state
+  const [proName, setProName] = useState('');
+  const [proEmail, setProEmail] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedPro, setSelectedPro] = useState<ProSearchResult | null>(null);
+    const [showProSearchResults, setShowProSearchResults] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  
+  // PRO search with debouncing
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+  const {
+    data: proSearchResults,
+    isLoading: isProSearchLoading,
+  } = useProSearch(deferredSearchQuery);
 
   // User actions state
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -153,33 +126,29 @@ const UserManagementPage = () => {
   });
 
   const mutating =
-    createUser.isPending ||
     updateUser.isPending ||
-    deleteUser.isPending;
-
-  // Create new user
-  // Handle role selection
-  const handleRoleSelect = (role: 'pro' | 'employee') => {
-    setSelectedRole(role);
-    setIsRoleSelectionStep(false);
-    setNewUser(prev => ({ ...prev, role }));
-  };
+    deleteUser.isPending ||
+    createProAssociation.isPending;
 
   // Reset modal state
   const resetModalState = () => {
-    setSelectedRole(null);
-    setIsRoleSelectionStep(true);
-    setNewUser({ email: '', role: 'employee', full_name: '', password: '' });
-    setConfirmPassword('');
-    setShowNewPassword(false);
-    setShowConfirmPassword(false);
+    setProName('');
+    setProEmail('');
+    setSearchQuery('');
+    setSelectedPro(null);
+    setShowProSearchResults(false);
     setFormErrors({});
   };
 
-  const handleCreateUser = async (e: React.FormEvent) => {
+  const handleProAssociation = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const validation = validateCreateUserForm(newUser, confirmPassword);
+    if (!selectedPro) {
+      setFormErrors({ proEmail: 'Please select a PRO from the search results' });
+      return;
+    }
+
+    const validation = validateProAssociationForm(selectedPro.email);
     if (!validation.isValid) {
       setFormErrors(validation.errors);
       return;
@@ -187,12 +156,25 @@ const UserManagementPage = () => {
     
     setFormErrors({});
 
-    createUser.mutate(newUser, {
-      onSuccess: () => {
-        resetModalState();
-        setIsCreateDialogOpen(false);
-      },
-    });
+    try {
+      await createProAssociation.mutateAsync({
+        pro_user_id: selectedPro.id,
+      });
+      resetModalState();
+      setIsCreateDialogOpen(false);
+    } catch {
+      // Error toast is handled by the mutation hook.
+    }
+  };
+
+  // Handle PRO selection from search results
+  const handleProSelect = (pro: ProSearchResult) => {
+    setSelectedPro(pro);
+    setProName(pro.full_name || '');
+    setProEmail(pro.email);
+    setSearchQuery('');
+    setShowProSearchResults(false);
+    setFormErrors({});
   };
 
   // Edit user
@@ -242,17 +224,16 @@ const UserManagementPage = () => {
   
   // Type-safe wrapper for setRoleFilter
   const handleRoleFilterChange = (value: string) => {
-    if (value === "all" || value === "owner" || value === "pro" || value === "employee") {
+    if (value === "all" || value === "owner" || value === "pro") {
       setRoleFilter(value);
     }
   };
 
 
-  const roleFilters: { label: string; value: "all" | "owner" | "pro" | "employee" }[] = [
+  const roleFilters: { label: string; value: "all" | "owner" | "pro" }[] = [
     { label: "All Roles", value: "all" as const },
     { label: "Owner", value: "owner" as const },
     { label: "Pro", value: "pro" as const },
-    { label: "Employee", value: "employee" as const },
   ];
 
   // Security check - don't render if not logged in
@@ -284,9 +265,9 @@ const UserManagementPage = () => {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">User Management ({loadErrorMessage ? '—' : total})</h1>
+            <h1 className="text-2xl font-bold">PRO Management ({loadErrorMessage ? '—' : total})</h1>
             <p className="text-muted-foreground">
-              Manage PRO consultants and employees for your business
+              Manage PRO associations and requests for your business
             </p>
           </div>
           
@@ -302,289 +283,128 @@ const UserManagementPage = () => {
             <DialogTrigger asChild>
               <Button disabled={!!loadErrorMessage || mutating}>
                 <UserPlus className="h-4 w-4 mr-2" />
-                Add User
+                Request PRO Association
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[480px]">
-              {isRoleSelectionStep ? (
-                // Role Selection Step
-                <>
-                  <DialogHeader className="pb-6">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                        <UserPlus className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <DialogTitle className="text-xl font-semibold">Create New User</DialogTitle>
-                        <p className="text-sm text-muted-foreground mt-1">Select the role for the new team member</p>
-                      </div>
+              {/* PRO Creation Form */}
+              <>
+                <DialogHeader className="pb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <UserPlus className="h-5 w-5 text-primary" />
                     </div>
-                  </DialogHeader>
-                  
-                  <div className="space-y-4">
-                    {USER_ROLES.map((role) => (
-                      <button
-                        key={role.value}
-                        type="button"
-                        onClick={() => handleRoleSelect(role.value as 'pro' | 'employee')}
-                        className="w-full text-left p-4 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-accent/50 transition-all duration-200 group"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="font-medium text-foreground group-hover:text-primary transition-colors">
-                              {role.label}
-                            </div>
-                            <div className="text-sm text-muted-foreground mt-1">
-                              {role.description}
-                            </div>
-                          </div>
-                          <div className="text-muted-foreground group-hover:text-primary transition-colors">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                  
-                  <div className="flex justify-end pt-4">
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      onClick={() => setIsCreateDialogOpen(false)}
-                      className="transition-all duration-200 hover:bg-accent/50"
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                // Form Step (only for Employee for now)
-                <>
-                  <DialogHeader className="pb-6">
-                    <div className="flex items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setIsRoleSelectionStep(true)}
-                        className="w-8 h-8 rounded-full hover:bg-accent/50 flex items-center justify-center transition-colors"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                        </svg>
-                      </button>
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                        <UserPlus className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <DialogTitle className="text-xl font-semibold">Create New {selectedRole === 'pro' ? 'Pro' : 'Employee'}</DialogTitle>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Add a new {selectedRole === 'pro' ? 'Pro consultant' : 'Employee'} to your business
-                        </p>
-                      </div>
-                    </div>
-                  </DialogHeader>
-                  
-                  {selectedRole === 'employee' ? (
-                    <form onSubmit={handleCreateUser} className="space-y-6">
-                      {/* Name and Email */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="fullName" className="text-sm font-medium flex items-center gap-1">
-                            Full Name <span className="text-destructive">*</span>
-                          </Label>
-                          <div className="relative">
-                            <Input
-                              id="fullName"
-                              placeholder="e.g., John Smith"
-                              value={newUser.full_name}
-                              onChange={(e) => {
-                                const value = e.target.value;
-                                if (isValidAlphabeticInput(value)) {
-                                  setNewUser({...newUser, full_name: validateAlphabeticText(value)});
-                                  if (formErrors.full_name) {
-                                    setFormErrors({...formErrors, full_name: ''});
-                                  }
-                                }
-                              }}
-                              className={`transition-all duration-200 ${formErrors.full_name ? 'border-destructive focus:ring-destructive/20' : 'focus:ring-primary/20'}`}
-                              required
-                            />
-                          </div>
-                          {formErrors.full_name && (
-                            <p className="text-xs text-destructive mt-1 flex items-center gap-1">
-                              <span className="w-1 h-1 bg-destructive rounded-full"></span>
-                              {formErrors.full_name}
-                            </p>
-                          )}
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <Label htmlFor="email" className="text-sm font-medium flex items-center gap-1">
-                            Email Address <span className="text-destructive">*</span>
-                          </Label>
-                          <div className="relative">
-                            <Input
-                              id="email"
-                              type="email"
-                              placeholder="john@company.com"
-                              value={newUser.email}
-                              onChange={(e) => {
-                                setNewUser({...newUser, email: e.target.value});
-                                if (formErrors.email) {
-                                  setFormErrors({...formErrors, email: ''});
-                                }
-                              }}
-                              className={`transition-all duration-200 ${formErrors.email ? 'border-destructive focus:ring-destructive/20' : 'focus:ring-primary/20'}`}
-                              required
-                            />
-                          </div>
-                          {formErrors.email && (
-                            <p className="text-xs text-destructive mt-1 flex items-center gap-1">
-                              <span className="w-1 h-1 bg-destructive rounded-full"></span>
-                              {formErrors.email}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Password and Confirm Password */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="newUserPassword" className="text-sm font-medium flex items-center gap-1">
-                            Password <span className="text-destructive">*</span>
-                          </Label>
-                          <div className="relative">
-                            <Input
-                              id="newUserPassword"
-                              type={showNewPassword ? 'text' : 'password'}
-                              autoComplete="new-password"
-                              placeholder="Enter a secure password"
-                              value={newUser.password}
-                              onChange={(e) => {
-                                setNewUser({ ...newUser, password: e.target.value });
-                                if (formErrors.password) {
-                                  setFormErrors({ ...formErrors, password: '' });
-                                }
-                              }}
-                              className={`pr-12 transition-all duration-200 ${formErrors.password ? 'border-destructive focus:ring-destructive/20' : 'focus:ring-primary/20'}`}
-                            />
-                            <button
-                              type="button"
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
-                              onClick={() => setShowNewPassword((s) => !s)}
-                              aria-label={showNewPassword ? 'Hide password' : 'Show password'}
-                            >
-                              {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                            </button>
-                          </div>
-                          {formErrors.password && (
-                            <p className="text-xs text-destructive mt-1 flex items-center gap-1">
-                              <span className="w-1 h-1 bg-destructive rounded-full"></span>
-                              {formErrors.password}
-                            </p>
-                          )}
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="confirmNewUserPassword" className="text-sm font-medium flex items-center gap-1">
-                            Confirm Password <span className="text-destructive">*</span>
-                          </Label>
-                          <div className="relative">
-                            <Input
-                              id="confirmNewUserPassword"
-                              type={showConfirmPassword ? 'text' : 'password'}
-                              autoComplete="new-password"
-                              placeholder="Re-enter the password"
-                              value={confirmPassword}
-                              onChange={(e) => {
-                                setConfirmPassword(e.target.value);
-                                if (formErrors.confirmPassword) {
-                                  setFormErrors({ ...formErrors, confirmPassword: '' });
-                                }
-                              }}
-                              className={`pr-12 transition-all duration-200 ${formErrors.confirmPassword ? 'border-destructive focus:ring-destructive/20' : 'focus:ring-primary/20'}`}
-                            />
-                            <button
-                              type="button"
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
-                              onClick={() => setShowConfirmPassword((s) => !s)}
-                              aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
-                            >
-                              {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                            </button>
-                          </div>
-                          {formErrors.confirmPassword && (
-                            <p className="text-xs text-destructive mt-1 flex items-center gap-1">
-                              <span className="w-1 h-1 bg-destructive rounded-full"></span>
-                              {formErrors.confirmPassword}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <div className="flex justify-end pt-4">
-                        <div className="flex gap-3">
-                          <Button 
-                            type="button" 
-                            variant="outline" 
-                            onClick={() => setIsCreateDialogOpen(false)}
-                            className="transition-all duration-200 hover:bg-accent/50"
-                          >
-                            Cancel
-                          </Button>
-                          <Button 
-                            type="submit" 
-                            disabled={createUser.isPending}
-                            className="transition-all duration-200 hover:shadow-lg"
-                          >
-                            {createUser.isPending ? (
-                              <>
-                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
-                                Creating...
-                              </>
-                            ) : (
-                              <>
-                                <UserPlus className="h-4 w-4 mr-2" />
-                                Create Employee
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                    </form>
-                  ) : (
-                    // Pro placeholder - you can add logic here later
-                    <div className="text-center py-12">
-                      <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                        <UserPlus className="h-8 w-8 text-primary" />
-                      </div>
-                      <h3 className="text-lg font-semibold mb-2">Pro User Creation</h3>
-                      <p className="text-muted-foreground mb-6">
-                        Pro user creation logic will be implemented here.
+                    <div>
+                      <DialogTitle className="text-xl font-semibold">Request PRO Association</DialogTitle>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Find and request association with an existing PRO consultant
                       </p>
-                      <div className="flex gap-3 justify-center">
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          onClick={() => setIsRoleSelectionStep(true)}
-                          className="transition-all duration-200 hover:bg-accent/50"
-                        >
-                          Back
-                        </Button>
-                        <Button 
-                          type="button" 
-                          variant="outline"
-                          onClick={() => setIsCreateDialogOpen(false)}
-                          className="transition-all duration-200 hover:bg-accent/50"
-                        >
-                          Cancel
-                        </Button>
+                    </div>
+                  </div>
+                </DialogHeader>
+                
+                <form onSubmit={handleProAssociation} className="space-y-6">
+                  {/* PRO Search */}
+                  <div className="space-y-2">
+                    <Label htmlFor="proSearch" className="text-sm font-medium flex items-center gap-1">
+                      Search for PRO <span className="text-destructive">*</span>
+                    </Label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="proSearch"
+                        placeholder="Search by name or email..."
+                        value={searchQuery}
+                        onChange={(e) => {
+                          setSearchQuery(e.target.value);
+                          setShowProSearchResults(true);
+                          if (formErrors.proEmail) {
+                            setFormErrors({ ...formErrors, proEmail: '' });
+                          }
+                        }}
+                        className={`pl-9 transition-all duration-200 ${formErrors.proEmail ? 'border-destructive focus:ring-destructive/20' : 'focus:ring-primary/20'}`}
+                      />
+                      {isProSearchLoading && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Search Results */}
+                    {showProSearchResults && searchQuery.length >= 2 && (
+                      <div className="border rounded-md bg-background shadow-sm max-h-48 overflow-y-auto">
+                        {proSearchResults?.length === 0 ? (
+                          <div className="p-3 text-sm text-muted-foreground text-center">
+                            No PROs found matching "{searchQuery}"
+                          </div>
+                        ) : (
+                          proSearchResults?.map((pro) => (
+                            <button
+                              key={pro.id}
+                              type="button"
+                              onClick={() => handleProSelect(pro)}
+                              className="w-full p-3 text-left hover:bg-accent/50 transition-colors border-b last:border-b-0"
+                            >
+                              <div className="font-medium text-sm">{pro.full_name || 'No name'}</div>
+                              <div className="text-xs text-muted-foreground">{pro.email}</div>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                    
+                    {formErrors.proEmail && (
+                      <p className="text-xs text-destructive mt-1 flex items-center gap-1">
+                        <span className="w-1 h-1 bg-destructive rounded-full"></span>
+                        {formErrors.proEmail}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Selected PRO Display */}
+                  {selectedPro && (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Selected PRO</Label>
+                      <div className="p-3 bg-muted/50 rounded-md border">
+                        <div className="font-medium text-sm">{selectedPro.full_name || 'No name'}</div>
+                        <div className="text-xs text-muted-foreground">{selectedPro.email}</div>
                       </div>
                     </div>
                   )}
+
+                                        
+                  <div className="flex justify-end pt-4">
+                    <div className="flex gap-3">
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        onClick={() => setIsCreateDialogOpen(false)}
+                        className="transition-all duration-200 hover:bg-accent/50"
+                      >
+                        Cancel
+                      </Button>
+                      <Button 
+                        type="submit" 
+                        disabled={createProAssociation.isPending || !selectedPro}
+                        className="transition-all duration-200 hover:shadow-lg"
+                      >
+                        {createProAssociation.isPending ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
+                            Sending...
+                          </>
+                        ) : (
+                          <>
+                            <UserPlus className="h-4 w-4 mr-2" />
+                            Send Request
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </form>
                 </>
-              )}
             </DialogContent>
           </Dialog>
         </div>
@@ -594,7 +414,7 @@ const UserManagementPage = () => {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
-              placeholder="Search users..." 
+              placeholder="Search PROs..." 
               value={searchTerm} 
               onChange={(e) => setSearchTerm(e.target.value)} 
               className="pl-9" 
@@ -660,9 +480,9 @@ const UserManagementPage = () => {
                   <tr>
                     <td colSpan={4} className="px-4 py-8 text-center">
                       <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <h3 className="text-lg font-semibold mb-2">No users found</h3>
+                      <h3 className="text-lg font-semibold mb-2">No PROs found</h3>
                       <p className="text-muted-foreground">
-                        {searchTerm ? 'Try adjusting your search terms.' : 'Create your first user to get started.'}
+                        {searchTerm ? 'Try adjusting your search terms.' : 'Create your first PRO to get started.'}
                       </p>
                     </td>
                   </tr>
@@ -678,7 +498,6 @@ const UserManagementPage = () => {
                       <td className="px-4 py-3 w-[20%]">
                         <span className={`text-xs px-2 py-0.5 rounded-full ${
                           userRow.role === 'pro' ? 'bg-primary/10 text-primary' :
-                          userRow.role === 'employee' ? 'bg-warning/10 text-warning' :
                           'bg-success/10 text-success'
                         }`}>
                           {userRow.role.charAt(0).toUpperCase() + userRow.role.slice(1)}

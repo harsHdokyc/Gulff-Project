@@ -3,6 +3,7 @@ export const ROUTES = {
   PUBLIC: {
     HOME: '/',
     ABOUT: '/about',
+    FEATURES: '/features',
     PRIVACY: '/privacy',
     TERMS: '/terms',
   },
@@ -19,6 +20,7 @@ export const ROUTES = {
     DOCUMENTS: '/documents',
     SETTINGS: '/settings',
     USER_MANAGEMENT: '/user-management',
+    ASSOCIATION_REQUESTS: '/association-requests',
   },
 } as const;
 

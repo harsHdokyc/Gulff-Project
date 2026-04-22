@@ -8,6 +8,9 @@ import {
   userManagementService,
   type CreateUserData,
   type User,
+  type ProSearchResult,
+  type ProBusinessRequest,
+  type CreateProAssociationRequest,
 } from '@/modules/user-management/services/userManagementService'
 import { toast } from '@/hooks/use-toast'
 
@@ -15,6 +18,12 @@ export const userManagementKeys = {
   all: ['user-management'] as const,
   users: (authUserId: string) =>
     [...userManagementKeys.all, 'users', authUserId] as const,
+  proSearch: (query: string) =>
+    [...userManagementKeys.all, 'pro-search', query] as const,
+  associationRequests: (authUserId: string) =>
+    [...userManagementKeys.all, 'association-requests', authUserId] as const,
+  proAssociationRequests: (authUserId: string) =>
+    [...userManagementKeys.all, 'pro-association-requests', authUserId] as const,
 }
 
 function invalidateManagedUsers(
@@ -159,6 +168,149 @@ export function useDeleteManagedUser(authUserId?: string) {
         title: 'Failed to delete user',
         description:
           error instanceof Error ? error.message : 'Failed to delete user',
+        variant: 'destructive',
+      })
+    },
+  })
+}
+
+/**
+ * Search for PRO users across all companies
+ */
+export function useProSearch(query: string) {
+  return useQuery({
+    queryKey: userManagementKeys.proSearch(query),
+    queryFn: async (): Promise<ProSearchResult[]> => {
+      const result = await userManagementService.searchPros(query)
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to search PROs')
+      }
+      return result.data || []
+    },
+    enabled: query.trim().length >= 2,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    gcTime: 5 * 60 * 1000, // 5 minutes
+    retry: 1,
+    refetchOnWindowFocus: false,
+  })
+}
+
+/**
+ * Get association requests for the current business
+ */
+export function useBusinessAssociationRequests(authUserId?: string) {
+  return useQuery({
+    queryKey: userManagementKeys.associationRequests(authUserId ?? ''),
+    queryFn: async (): Promise<ProBusinessRequest[]> => {
+      const result = await userManagementService.getBusinessAssociationRequests()
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to load association requests')
+      }
+      return result.data || []
+    },
+    enabled: !!authUserId,
+    staleTime: 1 * 60 * 1000, // 1 minute
+    gcTime: 5 * 60 * 1000, // 5 minutes
+    retry: 2,
+    refetchOnWindowFocus: true,
+  })
+}
+
+/**
+ * Create a PRO association request
+ */
+export function useCreateProAssociationRequest(authUserId?: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (data: CreateProAssociationRequest) => {
+      const result = await userManagementService.createProAssociationRequest(data)
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to send association request')
+      }
+    },
+    onSuccess: () => {
+      // Invalidate association requests and users list
+      if (authUserId) {
+        void queryClient.invalidateQueries({
+          queryKey: userManagementKeys.associationRequests(authUserId),
+        })
+        void queryClient.invalidateQueries({
+          queryKey: userManagementKeys.users(authUserId),
+        })
+      }
+      toast({
+        title: 'Association request sent',
+        description: 'Your request has been sent to the PRO. They will review it and respond.',
+      })
+    },
+    onError: (error) => {
+      toast({
+        title: 'Failed to send request',
+        description:
+          error instanceof Error ? error.message : 'Failed to send association request',
+        variant: 'destructive',
+      })
+    },
+  })
+}
+
+/**
+ * Get association requests assigned to the current PRO user
+ */
+export function useProAssociationRequests(authUserId?: string) {
+  return useQuery({
+    queryKey: userManagementKeys.proAssociationRequests(authUserId ?? ''),
+    queryFn: async (): Promise<ProBusinessRequest[]> => {
+      const result = await userManagementService.getProAssociationRequests()
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to load PRO association requests')
+      }
+      return result.data || []
+    },
+    enabled: !!authUserId,
+    staleTime: 1 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
+    retry: 2,
+    refetchOnWindowFocus: true,
+  })
+}
+
+/**
+ * Update association request status (accept/reject) - for PROs
+ */
+export function useUpdateAssociationRequest() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ 
+      requestId, 
+      status 
+    }: { 
+      requestId: string
+      status: 'accepted' | 'rejected' 
+    }) => {
+      const result = await userManagementService.updateAssociationRequest(requestId, status)
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to update request')
+      }
+      return { requestId, status }
+    },
+    onSuccess: ({ status }) => {
+      // Invalidate all association requests queries
+      void queryClient.invalidateQueries({
+        queryKey: userManagementKeys.all,
+      })
+      toast({
+        title: `Request ${status}`,
+        description: `The association request has been ${status}.`,
+      })
+    },
+    onError: (error) => {
+      toast({
+        title: 'Failed to update request',
+        description:
+          error instanceof Error ? error.message : 'Failed to update association request',
         variant: 'destructive',
       })
     },

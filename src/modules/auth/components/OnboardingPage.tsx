@@ -41,16 +41,29 @@ const OnboardingPage = () => {
   const [tradeLicenseDoc, setTradeLicenseDoc] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const hasRedirectedRef = useRef(false);
 
   // Check if user should be here and prefill company name
   useEffect(() => {
-    if (user && user.user_metadata?.onboarding_completed) {
+    const userRole = user?.app_metadata?.role || user?.user_metadata?.role
+    const onboardingCompleted = user?.app_metadata?.onboarding_completed || user?.user_metadata?.onboarding_completed
+
+    if (userRole === 'pro' && !hasRedirectedRef.current) {
+      hasRedirectedRef.current = true;
       navigate("/dashboard", { replace: true });
+      return;
+    }
+
+    if (user && onboardingCompleted && !hasRedirectedRef.current) {
+      hasRedirectedRef.current = true;
+      navigate("/dashboard", { replace: true });
+      return;
     }
     
-    // Prefill company name from user metadata
-    if (user?.user_metadata?.company) {
-      setCompanyName(user.user_metadata.company);
+    // Prefill company name from user metadata (only for business owners)
+    const company = user?.app_metadata?.company || user?.user_metadata?.company
+    if (company && userRole !== 'pro') {
+      setCompanyName(company);
     }
   }, [user, navigate]);
 
@@ -140,81 +153,77 @@ const OnboardingPage = () => {
   };
 
   const handleCompleteOnboarding = async () => {
-    if (!user || !companyId) return;
-    
-    setLoading(true);
-    
-    // Update compliance info
-    const complianceResult = await onboardingService.updateComplianceInfo(companyId, {
-      trade_license_expiry: tradeLicenseExpiry || undefined,
-      visa_count: visaCount || undefined
-    });
-    
-    if (!complianceResult.success) {
-      toast({
-        title: "Error",
-        description: complianceResult.error,
-        variant: "destructive"
-      });
-      setLoading(false);
+    if (!user || !companyId) {
       return;
     }
     
-    // Add first employee if provided
-    if (employeeName && employeeSalary) {
-      const employeeResult = await onboardingService.addFirstEmployee(companyId, {
-        name: employeeName,
-        salary: employeeSalary
-      });
-      
-      if (!employeeResult.success) {
-        toast({
-          title: "Error",
-          description: employeeResult.error,
-          variant: "destructive"
-        });
-        setLoading(false);
-        return;
-      }
-    }
+    setLoading(true);
     
-    // Upload documents if provided
-    if (tradeLicenseDoc) {
-      // For now, just store the file name. In production, you'd upload to storage service
-      const docResult = await onboardingService.uploadDocuments(companyId, {
-        trade_license_path: tradeLicenseDoc.name
-      });
-      
-      if (!docResult.success) {
-        toast({
-          title: "Error",
-          description: docResult.error,
-          variant: "destructive"
-        });
-        setLoading(false);
-        return;
-      }
-    }
-    
-    // Update company with employee count before completing onboarding
-    if (employeeCount && companyId) {
-      const updateResult = await onboardingService.updateCompanyInfo(companyId, {
-        employee_count: employeeCount
-      });
-      
-      if (!updateResult.success) {
-        toast({
-          title: "Error",
-          description: updateResult.error,
-          variant: "destructive"
-        });
-        setLoading(false);
-        return;
-      }
-    }
-    
-    // Complete onboarding
     try {
+      const complianceResult = await onboardingService.updateComplianceInfo(companyId, {
+        trade_license_expiry: tradeLicenseExpiry || undefined,
+        visa_count: visaCount || undefined
+      });
+      
+      if (!complianceResult.success) {
+        toast({
+          title: "Error",
+          description: complianceResult.error,
+          variant: "destructive"
+        });
+        setLoading(false);
+        return;
+      }
+      
+      if (employeeName && employeeSalary) {
+        const employeeResult = await onboardingService.addFirstEmployee(companyId, {
+          name: employeeName,
+          salary: employeeSalary
+        });
+        
+        if (!employeeResult.success) {
+          toast({
+            title: "Error",
+            description: employeeResult.error,
+            variant: "destructive"
+          });
+          setLoading(false);
+          return;
+        }
+      }
+      
+      if (tradeLicenseDoc) {
+        const docResult = await onboardingService.uploadDocuments(companyId, {
+          trade_license_path: tradeLicenseDoc.name
+        });
+        
+        if (!docResult.success) {
+          toast({
+            title: "Error",
+            description: docResult.error,
+            variant: "destructive"
+          });
+          setLoading(false);
+          return;
+        }
+      }
+      
+      if (employeeCount && companyId) {
+        const updateResult = await onboardingService.updateCompanyInfo(companyId, {
+          employee_count: employeeCount
+        });
+        
+        if (!updateResult.success) {
+          toast({
+            title: "Error",
+            description: updateResult.error,
+            variant: "destructive"
+          });
+          setLoading(false);
+          return;
+        }
+      }
+      
       await completeOnboarding(user.id);
       
       toast({
@@ -222,10 +231,10 @@ const OnboardingPage = () => {
         description: "Your account is ready. Redirecting to dashboard...",
       });
       
-      // Navigation will be handled by auth state change
       setTimeout(() => {
         navigate("/dashboard", { replace: true });
-      }, 1000);
+      }, 2000);
+      
     } catch (error: any) {
       toast({
         title: "Error",

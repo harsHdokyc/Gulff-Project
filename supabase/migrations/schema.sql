@@ -34,7 +34,7 @@ CREATE TABLE users (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   email TEXT UNIQUE NOT NULL,
   company_id UUID REFERENCES companies(id) ON DELETE CASCADE,
-  role TEXT NOT NULL DEFAULT 'employee' CHECK (role IN ('owner', 'pro', 'employee')),
+  role TEXT NOT NULL DEFAULT 'pro' CHECK (role IN ('owner', 'pro')),
   full_name TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()

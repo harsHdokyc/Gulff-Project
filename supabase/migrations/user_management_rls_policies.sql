@@ -345,7 +345,6 @@ SELECT
   COUNT(*) as total_users,
   COUNT(*) FILTER (WHERE role = 'owner') as owner_count,
   COUNT(*) FILTER (WHERE role = 'pro') as pro_count,
-  COUNT(*) FILTER (WHERE role = 'employee') as employee_count,
   MAX(created_at) as last_user_added
 FROM users
 -- RLS filtering will be applied by the underlying table

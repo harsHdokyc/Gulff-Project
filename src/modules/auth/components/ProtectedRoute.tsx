@@ -26,6 +26,14 @@ export function ProtectedRoute({
     return <Navigate to={redirectTo} replace />
   }
 
+  // Defensive bypass: PRO users should never be blocked by owner onboarding flow.
+  const userRole = user.app_metadata?.role || user.user_metadata?.role
+  const isProUser = userRole === 'pro'
+
+  if (requireOnboarding && isProUser) {
+    return <>{children}</>
+  }
+
   if (requireOnboarding && !isOnboarded) {
     return <Navigate to="/onboarding" replace />
   }

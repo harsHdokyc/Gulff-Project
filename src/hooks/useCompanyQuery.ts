@@ -8,6 +8,7 @@ export const companyKeys = {
   name: (userId: string) => [...companyKeys.user(userId), 'name'] as const,
   profileRole: (userId: string) =>
     [...companyKeys.all, 'profileRole', userId] as const,
+  proCompanies: (userId: string) => [...companyKeys.all, 'proCompanies', userId] as const,
 }
 
 /** Current row in `public.users` — used for nav (e.g. hide User Management from employees). */
@@ -89,6 +90,62 @@ export function useCompany(userId?: string) {
 
       if (error) throw error;
       return data;
+    },
+    enabled: !!userId,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
+    retry: 2,
+  });
+}
+
+// Hook for PRO users to get their associated companies
+export function useProCompanies(userId?: string) {
+  return useQuery({
+    queryKey: companyKeys.proCompanies(userId || ''),
+    queryFn: async () => {
+      if (!userId) return [];
+      const { data: rpcData, error: rpcError } = await supabase.rpc('get_pro_companies');
+      if (!rpcError && rpcData && rpcData.length > 0) {
+        return rpcData;
+      }
+
+      // Fallback path: derive linked companies from accepted association requests.
+      const { data: requestData, error: requestError } = await supabase
+        .from('pro_business_requests')
+        .select(`
+          business_id,
+          companies(id, name, industry, country, created_at)
+        `)
+        .eq('pro_user_id', userId)
+        .eq('status', 'accepted');
+
+      if (requestError) throw requestError;
+
+      type ProCompanyFallbackRow = {
+        business_id: string
+        companies?: {
+          id?: string
+          name?: string | null
+          industry?: string | null
+          country?: string | null
+          created_at?: string | null
+        } | null
+      }
+
+      const rows = (requestData || []) as ProCompanyFallbackRow[]
+      const mapped = rows.map((row) => ({
+        id: row.business_id,
+        name: row.companies?.name || `Company ${String(row.business_id).slice(0, 8)}`,
+        industry: row.companies?.industry || null,
+        country: row.companies?.country || null,
+        created_at: row.companies?.created_at || null,
+      }));
+
+      const uniqueById = new Map<string, (typeof mapped)[number]>();
+      mapped.forEach((company) => {
+        uniqueById.set(company.id, company);
+      });
+      return Array.from(uniqueById.values());
     },
     enabled: !!userId,
     staleTime: 10 * 60 * 1000, // 10 minutes

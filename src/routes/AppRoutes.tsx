@@ -19,6 +19,7 @@ const PageLoader = () => (
 // Lazy loaded Public Components
 const LandingPage = lazy(() => import("@/pages/LandingPage"));
 const AboutPage = lazy(() => import("@/pages/AboutPage"));
+const FeaturesPage = lazy(() => import("@/pages/FeaturesPage"));
 const PrivacyPage = lazy(() => import("@/pages/PrivacyPage"));
 const TermsPage = lazy(() => import("@/pages/TermsPage"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
@@ -36,6 +37,7 @@ const EmployeesPage = lazy(() => import("@/modules/user-management/components/Em
 const DocumentsPage = lazy(() => import("@/modules/documents/components/DocumentsPage"));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
 const UserManagementPage = lazy(() => import("@/modules/user-management/components/UserManagementPage"));
+const ProAssociationRequestsPage = lazy(() => import("@/modules/user-management/components/ProAssociationRequestsPage"));
 
 export function AppRoutes() {
   const { user, loading, isOnboarded } = useAuthContext();
@@ -62,6 +64,11 @@ export function AppRoutes() {
       <Route path={ROUTES.PUBLIC.ABOUT} element={
         <Suspense fallback={<PageLoader />}>
           <AboutPage />
+        </Suspense>
+      } />
+      <Route path={ROUTES.PUBLIC.FEATURES} element={
+        <Suspense fallback={<PageLoader />}>
+          <FeaturesPage />
         </Suspense>
       } />
       <Route path={ROUTES.PUBLIC.PRIVACY} element={
@@ -176,6 +183,18 @@ export function AppRoutes() {
             </ExcludeRolesRoute>
           </ProtectedRoute>
         } 
+      />
+      <Route
+        path={ROUTES.PROTECTED.ASSOCIATION_REQUESTS}
+        element={
+          <ProtectedRoute requireOnboarding={true}>
+            <ExcludeRolesRoute excludeRoles={["owner", "employee"]}>
+              <Suspense fallback={<PageLoader />}>
+                <ProAssociationRequestsPage />
+              </Suspense>
+            </ExcludeRolesRoute>
+          </ProtectedRoute>
+        }
       />
       
       {/* Default redirect */}

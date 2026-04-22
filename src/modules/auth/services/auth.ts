@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from '@/lib/supabase'
 import type { AuthError, User } from '@supabase/supabase-js'
 
@@ -128,13 +129,11 @@ export class AuthService {
       if (data.role === 'owner') {
         userMetadata.company = data.company
         userMetadata.whatsapp = data.whatsapp
-        // Owners will get role assigned by DB trigger
       } else if (data.role === 'pro') {
-        // PRO users get role assigned directly and skip onboarding
         userMetadata.role = 'pro'
-        userMetadata.onboarding_completed = true // PROs don't need onboarding
+        userMetadata.onboarding_completed = true
       }
-      
+
       const { error } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
@@ -144,7 +143,6 @@ export class AuthService {
       })
 
       if (error) {
-        // Check for duplicate email errors from Supabase (fallback)
         const errorMessage = error.message.toLowerCase()
         
         if (errorMessage.includes('already registered') || 
@@ -158,7 +156,7 @@ export class AuthService {
       }
 
       return { success: true }
-    } catch (error) {
+    } catch {
       return { success: false, error: 'Signup failed' }
     }
   }
@@ -208,7 +206,7 @@ export class AuthService {
       }
 
       return { success: true }
-    } catch (error) {
+    } catch {
       return { success: false, error: 'Sign in failed' }
     }
   }
@@ -261,7 +259,6 @@ export class AuthService {
   // Check onboarding status
   async checkOnboardingStatus(userId: string): Promise<boolean> {
     try {
-      // Add timeout to prevent hanging
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => reject(new Error('Database query timeout')), 3000)
       })
@@ -276,15 +273,16 @@ export class AuthService {
       ])
 
       if (error) {
-        // If it's a permission error or table doesn't exist, fall back to auth metadata.
-        if (error.code === 'PGRST301' || error.code === '42P01') {
+        if (error.code === 'PGRST301' || error.code === '42P01' || error.code === '42P17') {
           const { data: authData } = await supabase.auth.getUser()
-          const userRole = authData.user?.user_metadata?.role
-          // PRO users are considered onboarded by default
+          const userRole = authData.user?.app_metadata?.role || authData.user?.user_metadata?.role
+          const onboardingCompleted =
+            authData.user?.app_metadata?.onboarding_completed ||
+            authData.user?.user_metadata?.onboarding_completed
           if (userRole === 'pro') {
             return true
           }
-          return !!authData.user?.user_metadata?.onboarding_completed
+          return !!onboardingCompleted
         }
         return false
       }
@@ -293,31 +291,37 @@ export class AuthService {
       // In that case, fall back to auth metadata instead of trying to insert a row.
       if (!data) {
         const { data: authData } = await supabase.auth.getUser()
-        const userRole = authData.user?.user_metadata?.role
-        // PRO users are considered onboarded by default
+        const userRole = authData.user?.app_metadata?.role || authData.user?.user_metadata?.role
+        const onboardingCompleted =
+          authData.user?.app_metadata?.onboarding_completed ||
+          authData.user?.user_metadata?.onboarding_completed
         if (userRole === 'pro') {
           return true
         }
-        return !!authData.user?.user_metadata?.onboarding_completed
+        return !!onboardingCompleted
       }
 
-      // Owners complete the company onboarding wizard (flag below).
-      // Employees / PRO invited by an owner already belong to a company — skip onboarding.
+      // Owners complete company onboarding wizard (flag below).
+      // PRO invited by an owner already belong to a company — skip onboarding.
       // Self-serve PRO users are also considered onboarded.
-      // Merge JWT metadata: if the DB trigger once stored self-serve PRO as owner, metadata still says pro.
+      // Merge JWT metadata: if it's a DB trigger once stored self-serve PRO as owner, metadata still says pro.
       const { data: authRow } = await supabase.auth.getUser()
-      const metaRole = authRow.user?.user_metadata?.role
-      const metaOnboarding = !!authRow.user?.user_metadata?.onboarding_completed
+      const metaRole = authRow.user?.app_metadata?.role || authRow.user?.user_metadata?.role
+      const metaOnboarding = !!(
+        authRow.user?.app_metadata?.onboarding_completed ||
+        authRow.user?.user_metadata?.onboarding_completed
+      )
 
       const invitedMember =
         !!data.company_id &&
-        (data.role === 'employee' || data.role === 'pro')
+        data.role === 'pro'
 
       const isPro = data.role === 'pro' || metaRole === 'pro'
 
-      return !!(data.onboarding_completed || metaOnboarding || invitedMember || isPro)
-    } catch (error) {
-      // If any exception occurs, assume not onboarded rather than hanging
+      // For business owners, prioritize DB onboarding_completed flag, but also check metadata
+      const dbOnboardingCompleted = !!data.onboarding_completed
+      return !!(dbOnboardingCompleted || metaOnboarding || invitedMember || isPro)
+    } catch {
       return false
     }
   }
@@ -325,28 +329,35 @@ export class AuthService {
   // Update onboarding status
   async completeOnboarding(userId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const { error } = await supabase
-        .from('users')
-        .update({ onboarding_completed: true })
-        .eq('id', userId)
+      const { data, error: rpcError } = await supabase
+        .rpc('complete_user_onboarding', { user_uuid: userId })
 
-      if (error) {
-        return { success: false, error: error.message }
+      if (rpcError) {
+        const { error: dbError } = await supabase
+          .from('users')
+          .update({ 
+            onboarding_completed: true,
+            onboarding_completed_at: new Date().toISOString()
+          })
+          .eq('id', userId)
+
+        if (dbError) {
+          return { success: false, error: dbError.message }
+        }
       }
 
-      // Keep auth metadata in sync so route guards have a reliable fallback.
-      const { error: metadataError } = await supabase.auth.updateUser({
-        data: { onboarding_completed: true }
+      const { error: authError } = await supabase.auth.updateUser({
+        data: {
+          onboarding_completed: true,
+          role: 'owner' // Ensure role is set in metadata
+        }
       })
 
-      // Do not fail onboarding completion if auth metadata update is blocked.
-      // The canonical source remains the users table flag.
-      if (metadataError) {
-        return { success: true }
-      }
+      void data
+      void authError
 
       return { success: true }
-    } catch (error) {
+    } catch {
       return { success: false, error: 'Failed to complete onboarding' }
     }
   }

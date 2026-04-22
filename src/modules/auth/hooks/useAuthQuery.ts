@@ -157,13 +157,21 @@ export function useAuthOptimized() {
       queryClient.setQueryData(authKeys.onboarding(userId), true)
       return { previousOnboarding }
     },
-    onError: (error, variables, context) => {
+    onSuccess: async (_, variables) => {
+      // Invalidate both user and onboarding queries to ensure auth state updates
+      await queryClient.invalidateQueries({ queryKey: authKeys.user() })
+      await queryClient.invalidateQueries({ queryKey: authKeys.onboarding(variables) })
+      // Also refresh the session to get updated metadata
+      await hydrateUserFromSession()
+    },
+    onError: (_error, variables, context) => {
       if (context?.previousOnboarding !== undefined) {
         queryClient.setQueryData(authKeys.onboarding(variables), context.previousOnboarding)
       }
     },
     onSettled: (_, __, variables) => {
       queryClient.invalidateQueries({ queryKey: authKeys.onboarding(variables) })
+      queryClient.invalidateQueries({ queryKey: authKeys.user() })
     },
   })
 
