@@ -114,7 +114,7 @@ export function useProCompanies(userId?: string) {
         .from('pro_business_requests')
         .select(`
           business_id,
-          companies(id, name, industry, country, created_at)
+          business_name
         `)
         .eq('pro_user_id', userId)
         .eq('status', 'accepted');
@@ -123,6 +123,7 @@ export function useProCompanies(userId?: string) {
 
       type ProCompanyFallbackRow = {
         business_id: string
+        business_name?: string | null
         companies?: {
           id?: string
           name?: string | null
@@ -135,10 +136,10 @@ export function useProCompanies(userId?: string) {
       const rows = (requestData || []) as ProCompanyFallbackRow[]
       const mapped = rows.map((row) => ({
         id: row.business_id,
-        name: row.companies?.name || `Company ${String(row.business_id).slice(0, 8)}`,
-        industry: row.companies?.industry || null,
-        country: row.companies?.country || null,
-        created_at: row.companies?.created_at || null,
+        name: row.business_name || `Company ${String(row.business_id).slice(0, 8)}`,
+        industry: null,
+        country: null,
+        created_at: null,
       }));
 
       const uniqueById = new Map<string, (typeof mapped)[number]>();

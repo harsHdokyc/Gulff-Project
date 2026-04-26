@@ -6,7 +6,6 @@ import {
 } from '@tanstack/react-query'
 import {
   userManagementService,
-  type CreateUserData,
   type User,
   type ProSearchResult,
   type ProBusinessRequest,
@@ -41,7 +40,8 @@ function invalidateManagedUsers(
  * Company user list for the owner user-management page.
  * Scoped by auth user id so the cache does not bleed across accounts.
  */
-export function useManagedUsers(authUserId?: string, params?: { pageIndex?: number; pageSize?: number; search?: string; role?: string }) {
+// pageIndex / pageSize reserved if server pagination is re-enabled for this list
+export function useManagedUsers(authUserId?: string, params?: { /* pageIndex?: number; pageSize?: number; */ search?: string; role?: string }) {
   return useQuery({
     queryKey: [...userManagementKeys.users(authUserId ?? ''), params ?? {}],
     queryFn: async (): Promise<{ users: User[]; total: number }> => {
@@ -72,33 +72,6 @@ export function useManagedUsers(authUserId?: string, params?: { pageIndex?: numb
   })
 }
 
-export function useCreateManagedUser(authUserId?: string) {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async (data: CreateUserData) => {
-      const result = await userManagementService.createUser(data)
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to create user')
-      }
-    },
-    onSuccess: (_, variables) => {
-      invalidateManagedUsers(queryClient, authUserId)
-      toast({
-        title: 'User created successfully',
-        description: `${variables.email} can sign in with the password you set.`,
-      })
-    },
-    onError: (error) => {
-      toast({
-        title: 'Failed to create user',
-        description:
-          error instanceof Error ? error.message : 'Failed to create user',
-        variant: 'destructive',
-      })
-    },
-  })
-}
 
 export function useUpdateManagedUser(authUserId?: string) {
   const queryClient = useQueryClient()
@@ -114,7 +87,7 @@ export function useUpdateManagedUser(authUserId?: string) {
       displayName: string
     }) => {
       const result = await userManagementService.updateUser(userId, {
-        full_name,
+        display_name: displayName,
       })
       if (!result.success) {
         throw new Error(result.error || 'Failed to update user')

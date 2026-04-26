@@ -224,7 +224,7 @@ const OnboardingPage = () => {
         }
       }
       
-      await completeOnboarding(user.id);
+      await completeOnboarding({ userId: user.id, displayName: ownerName });
       
       toast({
         title: "Welcome!",

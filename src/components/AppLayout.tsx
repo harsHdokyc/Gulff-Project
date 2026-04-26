@@ -6,6 +6,7 @@ import NotificationCenter from "@/components/NotificationCenter";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuthContext } from "@/modules/auth/components/AuthContext";
 import { useCompanyName, useCurrentUserRole, useProCompanies } from "@/hooks/useCompanyQuery";
+import { useProAssociationRequests } from "@/modules/user-management/hooks/useUserManagementQuery";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const navItems = [
@@ -36,7 +37,11 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
   const { data: companyName, isLoading: isCompanyLoading } = useCompanyName(user?.id);
   const { data: profileRole, isLoading: isRoleLoading } = useCurrentUserRole(user?.id);
   const { data: proCompanies, isLoading: isProCompaniesLoading } = useProCompanies(user?.id);
+  const { data: associationRequests = [] } = useProAssociationRequests(user?.id);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
+
+  // Calculate pending association requests for red dot indicator
+  const pendingAssociationRequests = associationRequests.filter((request) => request.status === "pending").length;
 
   useEffect(() => {
     if (profileRole !== "pro") return;
@@ -70,11 +75,13 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
         <nav className="p-2 space-y-0.5">
           {visibleNavItems.map((item) => {
             const active = location.pathname === item.path;
+            const hasPendingRequests = item.path === "/association-requests" && pendingAssociationRequests > 0;
+            
             return (
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
+                className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors relative ${
                   active
                     ? "bg-primary/10 text-primary font-medium"
                     : "text-muted-foreground hover:text-foreground hover:bg-accent"
@@ -82,6 +89,9 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
               >
                 <item.icon className="h-4 w-4 flex-shrink-0" />
                 {sidebarOpen && <span>{item.label}</span>}
+                {hasPendingRequests && (
+                  <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full" />
+                )}
               </Link>
             );
           })}

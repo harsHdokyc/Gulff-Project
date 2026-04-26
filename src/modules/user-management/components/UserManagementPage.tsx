@@ -13,10 +13,11 @@ import { useAuthContext } from "@/modules/auth/components/AuthContext";
 import {
   type User,
 } from "@/modules/user-management/services/userManagementService";
-import { SimplePagination } from "@/components/Pagination";
-import { useServerPagination } from "@/hooks/useServerPagination";
-import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
+// import { SimplePagination } from "@/components/Pagination";
+// import { useServerPagination } from "@/hooks/useServerPagination";
+// import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 import { useDeferredValue } from "react";
+import { toast } from "@/hooks/use-toast";
 import {
   useManagedUsers,
   useUpdateManagedUser,
@@ -38,6 +39,23 @@ const ROLE_BADGE_VARIANTS = {
 
 // Helper functions
 const getRoleBadgeVariant = (role: string) => ROLE_BADGE_VARIANTS[role as keyof typeof ROLE_BADGE_VARIANTS] || 'outline';
+
+// Helper function to get display name
+const getDisplayName = (userRow: User, currentUser?: any) => {
+  // If this is the current user (owner), try to get display_name from auth metadata
+  if (userRow.id === currentUser?.id) {
+    const displayName = currentUser?.user_metadata?.display_name || 
+                       currentUser?.app_metadata?.display_name ||
+                       currentUser?.user_metadata?.name ||
+                       currentUser?.app_metadata?.name;
+    if (displayName) {
+      return displayName;
+    }
+  }
+  
+  // Fall back to display_name from users table or email
+  return userRow.display_name || userRow.email || 'No name';
+};
 
 // Validation functions
 const validateEmail = (email: string): boolean => {
@@ -75,10 +93,11 @@ const UserManagementPage = () => {
   const deferredSearch = useDeferredValue(searchTerm);
   const [roleFilter, setRoleFilter] = useState('all');
 
-  const pagination = useServerPagination({
-    pageSize: DEFAULT_PAGE_SIZE,
-    resetKey: `${roleFilter}|${deferredSearch}`,
-  });
+  // Pagination disabled: user management only ever shows a couple of rows (owner + PRO).
+  // const pagination = useServerPagination({
+  //   pageSize: DEFAULT_PAGE_SIZE,
+  //   resetKey: `${roleFilter}|${deferredSearch}`,
+  // });
 
   const {
     data: usersData,
@@ -88,18 +107,40 @@ const UserManagementPage = () => {
     refetch,
     isFetching,
   } = useManagedUsers(authUserId, {
-    ...pagination.queryParams,
+    // ...pagination.queryParams,
     search: deferredSearch,
     role: roleFilter === 'all' ? undefined : roleFilter,
   });
 
   const users = usersData?.users ?? [];
-  const total = usersData?.total ?? 0;
+
+  const { data: associationRequests } = useBusinessAssociationRequests(authUserId);
+
+  // Add associated PRO users to the users table
+  const associatedProUsers = associationRequests
+    ?.filter(req => req.status === 'accepted')
+    ?.map(req => ({
+      id: req.pro_user_id,
+      email: req.pro_email || 'PRO User',
+      role: 'pro' as const,
+      full_name: req.pro_name || null,
+      company_id: req.business_id,
+      created_at: req.created_at,
+      updated_at: req.updated_at,
+      onboarding_completed: true,
+      onboarding_completed_at: null,
+      status: 'active' as const,
+      pro_id: null,
+    })) || [];
+
+  // Combine owner users with associated PRO users
+  const allUsers = [...users, ...associatedProUsers];
+
+  const total = allUsers.length;
 
   const updateUser = useUpdateManagedUser(authUserId);
   const deleteUser = useDeleteManagedUser(authUserId);
   const createProAssociation = useCreateProAssociationRequest(authUserId);
-  const { data: associationRequests } = useBusinessAssociationRequests(authUserId);
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   
@@ -130,6 +171,9 @@ const UserManagementPage = () => {
     deleteUser.isPending ||
     createProAssociation.isPending;
 
+  // Check if owner already has a PRO assigned
+  const hasExistingPro = allUsers.some(user => user.role === 'pro');
+
   // Reset modal state
   const resetModalState = () => {
     setProName('');
@@ -142,6 +186,16 @@ const UserManagementPage = () => {
 
   const handleProAssociation = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check if user already has a PRO
+    if (hasExistingPro) {
+      toast({
+        title: 'PRO Limit Reached',
+        description: 'You already have a PRO assigned. You cannot add more than one PRO.',
+        variant: 'destructive',
+      });
+      return;
+    }
     
     if (!selectedPro) {
       setFormErrors({ proEmail: 'Please select a PRO from the search results' });
@@ -181,7 +235,7 @@ const UserManagementPage = () => {
   const handleEditUser = (userRow: User) => {
     setEditingUser(userRow);
     setEditForm({
-      full_name: userRow.full_name || ''
+      full_name: userRow.display_name || userRow.email || ''
     });
     setIsEditDialogOpen(true);
   };
@@ -198,7 +252,7 @@ const UserManagementPage = () => {
       {
         userId: editingUser.id,
         full_name: editForm.full_name.trim(),
-        displayName: editingUser.full_name || editingUser.email,
+        displayName: editForm.full_name.trim(),
       },
       {
         onSuccess: () => {
@@ -211,13 +265,14 @@ const UserManagementPage = () => {
 
   // Delete user
   const handleDeleteUser = (userRow: User) => {
-    if (!window.confirm(`Are you sure you want to delete ${userRow.full_name || userRow.email}? This action cannot be undone.`)) {
+    const displayName = getDisplayName(userRow, user);
+    if (!window.confirm(`Are you sure you want to delete ${displayName}? This action cannot be undone.`)) {
       return;
     }
 
     deleteUser.mutate({
       userId: userRow.id,
-      label: userRow.full_name || userRow.email,
+      label: displayName,
     });
   };
 
@@ -259,6 +314,14 @@ const UserManagementPage = () => {
 
   const loadErrorMessage = isError && error instanceof Error ? error.message : null;
 
+  // Get button state based on PRO assignment and system status
+  const buttonState = {
+    disabled: !!loadErrorMessage || mutating || hasExistingPro,
+    tooltip: hasExistingPro 
+      ? 'You already have a PRO assigned. You cannot add a new one.'
+      : (loadErrorMessage || mutating ? 'System busy or loading data' : 'Request association with a PRO consultant')
+  };
+
   return (
     <AppLayout>
       <div className="container mx-auto py-8 space-y-6">
@@ -274,6 +337,14 @@ const UserManagementPage = () => {
           <Dialog
             open={isCreateDialogOpen}
             onOpenChange={(open) => {
+              if (open && hasExistingPro) {
+                toast({
+                  title: 'PRO Limit Reached',
+                  description: 'You already have a PRO assigned. You cannot add more than one PRO.',
+                  variant: 'destructive',
+                });
+                return;
+              }
               setIsCreateDialogOpen(open);
               if (!open) {
                 resetModalState();
@@ -281,10 +352,21 @@ const UserManagementPage = () => {
             }}
           >
             <DialogTrigger asChild>
-              <Button disabled={!!loadErrorMessage || mutating}>
-                <UserPlus className="h-4 w-4 mr-2" />
-                Request PRO Association
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="inline-block">
+                        <Button disabled={buttonState.disabled}>
+                        <UserPlus className="h-4 w-4 mr-2" />
+                        Request PRO Association
+                      </Button>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{buttonState.tooltip}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[480px]">
               {/* PRO Creation Form */}
@@ -487,10 +569,10 @@ const UserManagementPage = () => {
                     </td>
                   </tr>
                 ) : (
-                  users.map((userRow) => (
+                  allUsers.map((userRow) => (
                     <tr key={userRow.id} className="hover:bg-accent/50 transition-colors">
                       <td className="px-4 py-3 text-foreground w-[30%]">
-                        {userRow.full_name || 'No name'}
+                        {getDisplayName(userRow, user)}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground w-[35%]">
                         {userRow.email}
@@ -556,7 +638,7 @@ const UserManagementPage = () => {
           </div>
         </div>
 
-        <SimplePagination
+        {/* <SimplePagination
             pagination={{
               total,
               pageCount: Math.ceil(total / pagination.pageSize),
@@ -567,7 +649,7 @@ const UserManagementPage = () => {
             }}
             onPageChange={pagination.setPageIndex}
             disabled={isFetching}
-          />
+          /> */}
 
         {/* Edit User Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>

@@ -150,8 +150,8 @@ export function useAuthOptimized() {
 
   // Complete onboarding mutation
   const completeOnboardingMutation = useMutation({
-    mutationFn: (userId: string) => authService.completeOnboarding(userId),
-    onMutate: async (userId) => {
+    mutationFn: ({ userId, displayName }: { userId: string; displayName?: string }) => authService.completeOnboarding(userId, displayName),
+    onMutate: async ({ userId }) => {
       await queryClient.cancelQueries({ queryKey: authKeys.onboarding(userId) })
       const previousOnboarding = queryClient.getQueryData(authKeys.onboarding(userId))
       queryClient.setQueryData(authKeys.onboarding(userId), true)
@@ -160,17 +160,17 @@ export function useAuthOptimized() {
     onSuccess: async (_, variables) => {
       // Invalidate both user and onboarding queries to ensure auth state updates
       await queryClient.invalidateQueries({ queryKey: authKeys.user() })
-      await queryClient.invalidateQueries({ queryKey: authKeys.onboarding(variables) })
+      await queryClient.invalidateQueries({ queryKey: authKeys.onboarding(variables.userId) })
       // Also refresh the session to get updated metadata
       await hydrateUserFromSession()
     },
     onError: (_error, variables, context) => {
       if (context?.previousOnboarding !== undefined) {
-        queryClient.setQueryData(authKeys.onboarding(variables), context.previousOnboarding)
+        queryClient.setQueryData(authKeys.onboarding(variables.userId), context.previousOnboarding)
       }
     },
     onSettled: (_, __, variables) => {
-      queryClient.invalidateQueries({ queryKey: authKeys.onboarding(variables) })
+      queryClient.invalidateQueries({ queryKey: authKeys.onboarding(variables.userId) })
       queryClient.invalidateQueries({ queryKey: authKeys.user() })
     },
   })

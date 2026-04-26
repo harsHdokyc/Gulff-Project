@@ -327,7 +327,7 @@ export class AuthService {
   }
 
   // Update onboarding status
-  async completeOnboarding(userId: string): Promise<{ success: boolean; error?: string }> {
+  async completeOnboarding(userId: string, displayName?: string): Promise<{ success: boolean; error?: string }> {
     try {
       const { data, error: rpcError } = await supabase
         .rpc('complete_user_onboarding', { user_uuid: userId })
@@ -346,11 +346,19 @@ export class AuthService {
         }
       }
 
+      // Prepare user metadata update
+      const userMetadata: any = {
+        onboarding_completed: true,
+        role: 'owner' // Ensure role is set in metadata
+      }
+
+      // Add display name if provided
+      if (displayName) {
+        userMetadata.display_name = displayName
+      }
+
       const { error: authError } = await supabase.auth.updateUser({
-        data: {
-          onboarding_completed: true,
-          role: 'owner' // Ensure role is set in metadata
-        }
+        data: userMetadata
       })
 
       void data
