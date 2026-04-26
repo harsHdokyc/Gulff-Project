@@ -7,6 +7,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAuthContext } from "@/modules/auth/components/AuthContext";
 import { useCompanyName, useCurrentUserRole, useProCompanies } from "@/hooks/useCompanyQuery";
 import { useProAssociationRequests } from "@/modules/user-management/hooks/useUserManagementQuery";
+import { useOrganizationRouting } from "@/hooks/useOrganizationRouting";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const navItems = [
@@ -38,17 +39,24 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
   const { data: profileRole, isLoading: isRoleLoading } = useCurrentUserRole(user?.id);
   const { data: proCompanies, isLoading: isProCompaniesLoading } = useProCompanies(user?.id);
   const { data: associationRequests = [] } = useProAssociationRequests(user?.id);
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
+  const { 
+    currentOrgId, 
+    proCompanies: orgProCompanies, 
+    switchOrganization, 
+    isOrgRoute,
+    getDefaultOrg 
+  } = useOrganizationRouting();
 
   // Calculate pending association requests for red dot indicator
   const pendingAssociationRequests = associationRequests.filter((request) => request.status === "pending").length;
 
-  useEffect(() => {
-    if (profileRole !== "pro") return;
-    if (!proCompanies || proCompanies.length === 0) return;
-    if (selectedCompanyId) return;
-    setSelectedCompanyId(proCompanies[0].id);
-  }, [profileRole, proCompanies, selectedCompanyId]);
+  // Use orgProCompanies from hook, fallback to proCompanies for compatibility
+  const availableCompanies = orgProCompanies || proCompanies || [];
+  const selectedCompanyId = currentOrgId || '';
+
+  console.log('🎛️ [AppLayout] Current organization ID:', currentOrgId);
+  console.log('🎛️ [AppLayout] Is organization route:', isOrgRoute);
+  console.log('🎛️ [AppLayout] Available companies:', availableCompanies);
 
   const visibleNavItems = navItems.filter((item) => {
     if ("onlyForPro" in item && item.onlyForPro) {
@@ -74,13 +82,31 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
         </div>
         <nav className="p-2 space-y-0.5">
           {visibleNavItems.map((item) => {
-            const active = location.pathname === item.path;
+            // Generate organization-specific path for PRO users
+            const getNavigationPath = (path: string) => {
+              if (profileRole === "pro" && isOrgRoute && currentOrgId) {
+                // Map standard paths to organization paths
+                const orgPathMap: Record<string, string> = {
+                  "/dashboard": `/org/${currentOrgId}/dashboard`,
+                  "/compliance": `/org/${currentOrgId}/compliance`,
+                  "/employees": `/org/${currentOrgId}/employees`,
+                  "/documents": `/org/${currentOrgId}/documents`,
+                  "/settings": `/org/${currentOrgId}/settings`,
+                };
+                return orgPathMap[path] || path;
+              }
+              return path;
+            };
+
+            const active = location.pathname === item.path || 
+                   (profileRole === "pro" && isOrgRoute && location.pathname === getNavigationPath(item.path));
             const hasPendingRequests = item.path === "/association-requests" && pendingAssociationRequests > 0;
-            
+            const navigationPath = getNavigationPath(item.path);
+
             return (
               <Link
                 key={item.path}
-                to={item.path}
+                to={navigationPath}
                 className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors relative ${
                   active
                     ? "bg-primary/10 text-primary font-medium"
@@ -116,15 +142,15 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
                 ) : (
                   <Select
                     value={selectedCompanyId}
-                    onValueChange={setSelectedCompanyId}
-                    disabled={!proCompanies || proCompanies.length === 0}
+                    onValueChange={switchOrganization}
+                    disabled={!availableCompanies || availableCompanies.length === 0}
                   >
                     <SelectTrigger className="text-sm text-muted-foreground w-48">
-                      <SelectValue placeholder={proCompanies && proCompanies.length > 0 ? "Select Company" : "No Companies Linked"} />
+                      <SelectValue placeholder={availableCompanies && availableCompanies.length > 0 ? "Select Company" : "No Companies Linked"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {proCompanies && proCompanies.length > 0 ? (
-                        proCompanies.map((company) => (
+                      {availableCompanies && availableCompanies.length > 0 ? (
+                        availableCompanies.map((company) => (
                           <SelectItem key={company.id} value={company.id}>
                             {company.name}
                           </SelectItem>

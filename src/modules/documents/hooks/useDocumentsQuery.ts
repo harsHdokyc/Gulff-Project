@@ -8,6 +8,7 @@ import {
 import { toast } from '@/hooks/use-toast'
 import { useEffect } from 'react'
 import { documentSummaryKeys } from '@/modules/documents/hooks/useDocumentSummaryQuery'
+import { useCurrentOrganization } from '@/hooks/useCurrentOrganization'
 
 export const documentKeys = {
   all: ['documents'] as const,
@@ -68,17 +69,26 @@ export function useDocumentsPage(params: {
   useInvalidateDocumentsOnRealtime()
 
   const { pageIndex, pageSize, search, status } = params
+  const { organizationId } = useCurrentOrganization()
   const statusKey = status ?? 'all'
+
+  const queryParams = {
+    page: pageIndex,
+    pageSize,
+    search: search.trim() || undefined,
+    status,
+    organizationId: organizationId || undefined,
+  }
+
+  console.log('📄 [useDocumentsPage] Query parameters:', queryParams);
+  console.log('📄 [useDocumentsPage] Organization ID from hook:', organizationId);
 
   const query = useQuery({
     queryKey: documentKeys.page(pageIndex, pageSize, search.trim(), statusKey),
-    queryFn: () =>
-      documentService.getDocumentsPage({
-        page: pageIndex,
-        pageSize,
-        search: search.trim() || undefined,
-        status,
-      }),
+    queryFn: () => {
+      console.log('📄 [useDocumentsPage] Executing query with params:', queryParams);
+      return documentService.getDocumentsPage(queryParams);
+    },
     placeholderData: keepPreviousData,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
@@ -90,9 +100,20 @@ export function useDocumentsPage(params: {
     refetchOnReconnect: true,
   })
 
+  const documents = query.data?.documents ?? []
+  const total = query.data?.total ?? 0
+
+  console.log('📄 [useDocumentsPage] Query result:', {
+    documentsCount: documents.length,
+    total,
+    isLoading: query.isLoading,
+    error: query.error?.message,
+    documents: documents.slice(0, 3) // Show first 3 documents for debugging
+  });
+
   return {
-    documents: query.data?.documents ?? [],
-    total: query.data?.total ?? 0,
+    documents,
+    total,
     isLoading: query.isLoading,
     isFetching: query.isFetching,
     error: query.error,

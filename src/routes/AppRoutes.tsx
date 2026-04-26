@@ -172,6 +172,58 @@ export function AppRoutes() {
           </ProtectedRoute>
         } 
       />
+
+      {/* Organization-based Routes - For PRO users */}
+      <Route 
+        path={ROUTES.ORGANIZATION.DASHBOARD} 
+        element={
+          <ProtectedRoute requireOnboarding={true}>
+            <Suspense fallback={<PageLoader />}>
+              <DashboardPage />
+            </Suspense>
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path={ROUTES.ORGANIZATION.COMPLIANCE} 
+        element={
+          <ProtectedRoute requireOnboarding={true}>
+            <Suspense fallback={<PageLoader />}>
+              <CompliancePage />
+            </Suspense>
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path={ROUTES.ORGANIZATION.EMPLOYEES} 
+        element={
+          <ProtectedRoute requireOnboarding={true}>
+            <Suspense fallback={<PageLoader />}>
+              <EmployeesPage />
+            </Suspense>
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path={ROUTES.ORGANIZATION.DOCUMENTS} 
+        element={
+          <ProtectedRoute requireOnboarding={true}>
+            <Suspense fallback={<PageLoader />}>
+              <DocumentsPage />
+            </Suspense>
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path={ROUTES.ORGANIZATION.SETTINGS} 
+        element={
+          <ProtectedRoute requireOnboarding={true}>
+            <Suspense fallback={<PageLoader />}>
+              <SettingsPage />
+            </Suspense>
+          </ProtectedRoute>
+        } 
+      />
       <Route 
         path={ROUTES.PROTECTED.USER_MANAGEMENT} 
         element={

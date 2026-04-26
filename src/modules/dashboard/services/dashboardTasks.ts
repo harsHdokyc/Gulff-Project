@@ -53,7 +53,7 @@ class TaskService {
     return TaskService.instance
   }
 
-  async getTasks(params?: { pageIndex?: number; pageSize?: number; priority?: string; status?: string; search?: string }): Promise<{ tasks: Task[]; total: number }> {
+  async getTasks(params?: { pageIndex?: number; pageSize?: number; priority?: string; status?: string; search?: string; organizationId?: string }): Promise<{ tasks: Task[]; total: number }> {
     try {
       const pageIndex = params?.pageIndex ?? 0;
       const pageSize = params?.pageSize ?? 50;
@@ -64,6 +64,39 @@ class TaskService {
       let query = supabase
         .from('compliance_tasks')
         .select('*', { count: 'exact' });
+
+      // Filter by organization if provided
+      if (params?.organizationId) {
+        console.log('📋 [TaskService.getTasks] Filtering by organizationId:', params.organizationId);
+        query = query.eq('company_id', params.organizationId);
+        
+        // Debug: Check if there are any tasks for this organization at all
+        const { data: allOrgTasks, error: debugError } = await supabase
+          .from('compliance_tasks')
+          .select('id, type, status, company_id')
+          .eq('company_id', params.organizationId);
+        
+        console.log('🔍 [TaskService.getTasks] DEBUG - All tasks for organization:', {
+          organizationId: params.organizationId,
+          allTasks: allOrgTasks,
+          error: debugError,
+          count: allOrgTasks?.length
+        });
+
+        // Debug: Check what tasks this user can access at all (RLS test)
+        const { data: allAccessibleTasks, error: rlsError } = await supabase
+          .from('compliance_tasks')
+          .select('id, type, status, company_id')
+          .limit(5);
+        
+        console.log('🔐 [TaskService.getTasks] DEBUG - All accessible tasks (RLS test):', {
+          allTasks: allAccessibleTasks,
+          error: rlsError,
+          count: allAccessibleTasks?.length
+        });
+      } else {
+        console.log('📋 [TaskService.getTasks] No organizationId filter - fetching all tasks');
+      }
 
       // Apply filters
       if (priority && priority !== 'all') {
@@ -83,8 +116,18 @@ class TaskService {
         .order('due_date', { ascending: true }) // Then by due date
         .range(pageIndex * pageSize, (pageIndex + 1) * pageSize - 1);
 
-      if (error) throw error;
-      
+      console.log('📋 [TaskService.getTasks] SQL result:', {
+        data: data,
+        error: error,
+        count: count,
+        dataLength: data?.length
+      });
+
+      if (error) {
+        console.error('Error fetching tasks:', error)
+        throw error
+      }
+
       return {
         tasks: data || [],
         total: count || 0

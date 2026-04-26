@@ -32,6 +32,7 @@ export interface GetDocumentsPageParams {
   pageSize: number
   search?: string
   status?: Document['status']
+  organizationId?: string
 }
 
 export interface GetDocumentsPageResult {
@@ -60,7 +61,7 @@ class DocumentService {
   }
 
   async getDocumentsPage(params: GetDocumentsPageParams): Promise<GetDocumentsPageResult> {
-    const { page, pageSize, search, status } = params
+    const { page, pageSize, search, status, organizationId } = params
     const safeSize = Math.min(Math.max(pageSize, 1), 100)
     const from = Math.max(page, 0) * safeSize
     const to = from + safeSize - 1
@@ -68,7 +69,16 @@ class DocumentService {
     let query = supabase
       .from('documents')
       .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false })
+
+    // Filter by organization if provided
+    if (organizationId) {
+      console.log('📄 [DocumentService.getDocumentsPage] Filtering by organizationId:', organizationId);
+      query = query.eq('company_id', organizationId)
+    } else {
+      console.log('📄 [DocumentService.getDocumentsPage] No organizationId filter - fetching all documents');
+    }
+
+    query = query.order('created_at', { ascending: false })
 
     if (search?.trim()) {
       query = query.ilike('name', `%${search.trim()}%`)

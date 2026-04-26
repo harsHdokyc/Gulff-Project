@@ -22,6 +22,14 @@ export const ROUTES = {
     USER_MANAGEMENT: '/user-management',
     ASSOCIATION_REQUESTS: '/association-requests',
   },
+  ORGANIZATION: {
+    BASE: '/org/:orgId',
+    DASHBOARD: '/org/:orgId/dashboard',
+    COMPLIANCE: '/org/:orgId/compliance',
+    EMPLOYEES: '/org/:orgId/employees',
+    DOCUMENTS: '/org/:orgId/documents',
+    SETTINGS: '/org/:orgId/settings',
+  },
 } as const;
 
 // Route types for type safety

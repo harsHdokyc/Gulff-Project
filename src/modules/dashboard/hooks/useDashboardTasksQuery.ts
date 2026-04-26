@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { taskService, Task, CreateTaskData, UpdateTaskData, TaskStats, TaskAlert } from '@/modules/dashboard/services/dashboardTasks'
 import { toast } from '@/hooks/use-toast'
 import { useEffect } from 'react'
+import { useCurrentOrganization } from '@/hooks/useCurrentOrganization'
 
 export const taskKeys = {
   all: ['tasks'] as const,
@@ -13,6 +14,16 @@ export const taskKeys = {
 
 export function useTasks(params?: { pageIndex?: number; pageSize?: number; priority?: string; status?: string; search?: string }) {
   const queryClient = useQueryClient()
+  const { organizationId } = useCurrentOrganization()
+
+  // Include organization ID in query parameters
+  const queryParams = {
+    ...params,
+    organizationId: organizationId || undefined,
+  }
+
+  console.log('📋 [useTasks] Query parameters:', queryParams);
+  console.log('📋 [useTasks] Organization ID from hook:', organizationId);
 
   const {
     data: tasksData,
@@ -21,8 +32,11 @@ export function useTasks(params?: { pageIndex?: number; pageSize?: number; prior
     refetch,
     isFetching
   } = useQuery({
-    queryKey: [...taskKeys.list(), params ?? {}],
-    queryFn: () => taskService.getTasks(params),
+    queryKey: [...taskKeys.list(), queryParams],
+    queryFn: () => {
+      console.log('📋 [useTasks] Executing query with params:', queryParams);
+      return taskService.getTasks(queryParams);
+    },
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
     retry: 3,
@@ -39,6 +53,13 @@ export function useTasks(params?: { pageIndex?: number; pageSize?: number; prior
   }, [queryClient])
 
   const tasks = tasksData?.tasks ?? []
+
+  console.log('📋 [useTasks] Query result:', {
+    tasksCount: tasks.length,
+    isLoading,
+    error: error?.message,
+    tasks: tasks.slice(0, 3) // Show first 3 tasks for debugging
+  });
 
   return {
     tasks,
