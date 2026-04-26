@@ -53,6 +53,11 @@ const getDisplayName = (userRow: User, currentUser?: any) => {
     }
   }
   
+  // For PRO users, prioritize full_name from database
+  if (userRow.role === 'pro' && userRow.full_name) {
+    return userRow.full_name;
+  }
+  
   // Fall back to display_name from users table or email
   return userRow.display_name || userRow.email || 'No name';
 };
@@ -171,8 +176,10 @@ const UserManagementPage = () => {
     deleteUser.isPending ||
     createProAssociation.isPending;
 
-  // Check if owner already has a PRO assigned
-  const hasExistingPro = allUsers.some(user => user.role === 'pro');
+  // Check if owner already has a PRO assigned - more precise logic
+  // Only count as having a PRO if there's an accepted association request
+  // This fixes the issue where the button was disabled even when no PRO was associated
+  const hasExistingPro = associationRequests?.some(req => req.status === 'accepted') || false;
 
   // Reset modal state
   const resetModalState = () => {
@@ -355,12 +362,13 @@ const UserManagementPage = () => {
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <div className="inline-block">
-                        <Button disabled={buttonState.disabled}>
-                        <UserPlus className="h-4 w-4 mr-2" />
-                        Request PRO Association
-                      </Button>
-                    </div>
+                    <Button 
+                      disabled={buttonState.disabled}
+                      onClick={() => setIsCreateDialogOpen(true)}
+                    >
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Request PRO Association
+                    </Button>
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>{buttonState.tooltip}</p>

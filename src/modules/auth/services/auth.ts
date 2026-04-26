@@ -12,6 +12,7 @@ export interface SignUpData {
   email: string
   password: string
   company?: string
+  fullName?: string
   whatsapp?: string
   role?: 'owner' | 'pro'
 }
@@ -132,6 +133,9 @@ export class AuthService {
       } else if (data.role === 'pro') {
         userMetadata.role = 'pro'
         userMetadata.onboarding_completed = true
+        if (data.fullName) {
+          userMetadata.full_name = data.fullName
+        }
       }
 
       const { error } = await supabase.auth.signUp({

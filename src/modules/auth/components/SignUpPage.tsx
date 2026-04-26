@@ -8,11 +8,11 @@ import { useTheme } from "@/hooks/useTheme";
 import { Sun, Moon, Loader2, Eye, EyeOff } from "lucide-react";
 import { useAuthContext } from "@/modules/auth/components/AuthContext";
 import { toast } from "@/hooks/use-toast";
-import { validateAlphanumericText, isValidAlphanumericInput } from "@/modules/auth/services/formValidation";
+import { validateAlphanumericText, isValidAlphanumericInput, validateAlphabeticText, isValidAlphabeticInput } from "@/modules/auth/services/formValidation";
 import { ROUTES } from "@/routes/constants";
 
 const SignUpPage = () => {
-  const [form, setForm] = useState({ company: "", email: "", password: "" });
+  const [form, setForm] = useState({ company: "", fullName: "", email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const showOTP = searchParams.get("step") === "verify";
@@ -61,7 +61,7 @@ const SignUpPage = () => {
   const resetSignupState = () => {
     setSelectedRole(null);
     setIsRoleSelectionStep(true);
-    setForm({ company: "", email: "", password: "" });
+    setForm({ company: "", fullName: "", email: "", password: "" });
     setShowPassword(false);
     setOTP("");
   };
@@ -72,6 +72,7 @@ const SignUpPage = () => {
     try {
       const result = await signUp({
         company: selectedRole === 'owner' ? form.company : undefined,
+        fullName: selectedRole === 'pro' ? form.fullName : undefined,
         email: form.email,
         password: form.password,
         role: selectedRole || undefined
@@ -241,6 +242,24 @@ const SignUpPage = () => {
           ) : (
             // Form Step
             <form className="mt-8 space-y-4" onSubmit={handleSignUp}>
+              {selectedRole === 'pro' && (
+                <div className="space-y-2">
+                  <Label htmlFor="fullName">Full Name</Label>
+                  <Input 
+                    id="fullName" 
+                    placeholder="John Doe" 
+                    value={form.fullName} 
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (isValidAlphabeticInput(value)) {
+                        setForm({ ...form, fullName: validateAlphabeticText(value) });
+                      }
+                    }} 
+                    disabled={isSigningUp}
+                    required
+                  />
+                </div>
+              )}
               {selectedRole === 'owner' && (
                 <div className="space-y-2">
                   <Label htmlFor="company">Company Name</Label>
