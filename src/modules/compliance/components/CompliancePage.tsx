@@ -15,6 +15,7 @@ import { SimplePagination } from "@/components/Pagination";
 import { useServerPagination } from "@/hooks/useServerPagination";
 import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 import { useDeferredValue } from "react";
+import { usePermissions } from "@/hooks/usePermissions";
 import {
   Tooltip,
   TooltipContent,
@@ -116,6 +117,7 @@ const TaskForm = ({ form, setForm, onSubmit, submitLabel, errors = {}, onFieldCh
 );
 
 const CompliancePage = () => {
+  const permissions = usePermissions();
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "completed" | "overdue">("all");
@@ -306,15 +308,17 @@ const CompliancePage = () => {
         <div className="max-w-5xl mx-auto animate-fade-in">
         <div className="flex items-center justify-between mb-6">
           <h1 className="font-heading text-2xl font-semibold text-foreground">Compliance Tasks ({total})</h1>
-          <Dialog open={addOpen} onOpenChange={(o) => { setAddOpen(o); if (!o) setForm(emptyForm); }}>
-            <DialogTrigger asChild>
-              <Button size="sm"><Plus className="h-4 w-4 mr-1" /> Add Task</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader><DialogTitle>Add Compliance Task</DialogTitle></DialogHeader>
-              <TaskForm form={form} setForm={setForm} onSubmit={handleAdd} submitLabel="Add Task" errors={errors} onFieldChange={clearFieldError} />
-            </DialogContent>
-          </Dialog>
+          {permissions.canCreateCompliance && (
+            <Dialog open={addOpen} onOpenChange={(o) => { setAddOpen(o); if (!o) setForm(emptyForm); }}>
+              <DialogTrigger asChild>
+                <Button size="sm"><Plus className="h-4 w-4 mr-1" /> Add Task</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader><DialogTitle>Add Compliance Task</DialogTitle></DialogHeader>
+                <TaskForm form={form} setForm={setForm} onSubmit={handleAdd} submitLabel="Add Task" errors={errors} onFieldChange={clearFieldError} />
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3 mb-4">
@@ -404,33 +408,37 @@ const CompliancePage = () => {
                       </td>
                       <td className="px-4 py-3 text-right w-[16.67%]">
                         <div className="flex items-center justify-end gap-1">
-                          <button 
-                            onClick={() => openEdit(task)} 
-                            disabled={task.status === "completed"}
-                            className={`p-1.5 rounded-md transition-colors ${
-                              task.status === "completed" 
-                                ? "text-muted-foreground/50 cursor-not-allowed" 
-                                : "text-muted-foreground hover:text-foreground hover:bg-accent"
-                            }`}
-                          >
-                            <Edit className="h-3.5 w-3.5" />
-                          </button>
+                          {permissions.canEditCompliance && (
+                            <button 
+                              onClick={() => openEdit(task)} 
+                              disabled={task.status === "completed"}
+                              className={`p-1.5 rounded-md transition-colors ${
+                                task.status === "completed" 
+                                  ? "text-muted-foreground/50 cursor-not-allowed" 
+                                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                              }`}
+                            >
+                              <Edit className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                           {task.status !== "completed" && (
                             <button onClick={() => openCompleteConfirmation(task)} className="p-1.5 rounded-md text-muted-foreground hover:text-success hover:bg-accent transition-colors">
                               <CheckCircle className="h-3.5 w-3.5" />
                             </button>
                           )}
-                          <button 
-                            onClick={() => openDeleteConfirmation(task)} 
-                            disabled={task.status === "completed"}
-                            className={`p-1.5 rounded-md transition-colors ${
-                              task.status === "completed" 
-                                ? "text-muted-foreground/50 cursor-not-allowed" 
-                                : "text-muted-foreground hover:text-destructive hover:bg-accent"
-                            }`}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                          {permissions.canDeleteCompliance && (
+                            <button 
+                              onClick={() => openDeleteConfirmation(task)} 
+                              disabled={task.status === "completed"}
+                              className={`p-1.5 rounded-md transition-colors ${
+                                task.status === "completed" 
+                                  ? "text-muted-foreground/50 cursor-not-allowed" 
+                                  : "text-muted-foreground hover:text-destructive hover:bg-accent"
+                              }`}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -450,6 +458,7 @@ const CompliancePage = () => {
             canPrev: pagination.pageIndex > 0,
             canNext: (pagination.pageIndex + 1) * pagination.pageSize < total,
           }}
+          pageIndex={pagination.pageIndex}
           onPageChange={pagination.setPageIndex}
           disabled={isFetching}
         />

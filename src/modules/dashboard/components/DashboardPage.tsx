@@ -321,6 +321,7 @@ const DashboardPage = () => {
             canPrev: deadlinePagination.pageIndex > 0,
             canNext: (deadlinePagination.pageIndex + 1) * deadlinePagination.pageSize < mergedDeadlines.length,
           }}
+          pageIndex={deadlinePagination.pageIndex}
           onPageChange={deadlinePagination.setPageIndex}
           disabled={isLoading}
         />

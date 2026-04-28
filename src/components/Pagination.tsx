@@ -10,7 +10,8 @@ import { cn } from "@/lib/utils";
 import type { UsePaginationResult } from "@/hooks/usePagination";
 
 interface PaginationProps {
-  pagination: UsePaginationResult<any>["pagination"];
+  pagination: UsePaginationResult<unknown>["pagination"];
+  pageIndex?: number;
   onPageChange: (page: number) => void;
   onPageSizeChange?: (pageSize: number) => void;
   disabled?: boolean;
@@ -23,6 +24,7 @@ const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
 
 export function Pagination({
   pagination,
+  pageIndex = 0,
   onPageChange,
   onPageSizeChange,
   disabled = false,
@@ -31,6 +33,7 @@ export function Pagination({
   pageSizeOptions = PAGE_SIZE_OPTIONS,
 }: PaginationProps) {
   const { total, pageCount, rangeStart, rangeEnd, canPrev, canNext } = pagination;
+  const currentPage = Math.min(Math.max(pageIndex, 0), Math.max(0, pageCount - 1));
 
   if (total === 0) {
     return (
@@ -49,7 +52,7 @@ export function Pagination({
     >
       <p className="text-sm text-muted-foreground">
         Showing {rangeStart}-{rangeEnd} of {total}
-        {pageCount > 1 ? ` · Page ${Math.floor(rangeStart / (rangeEnd - rangeStart + 1)) + 1} of ${pageCount}` : null}
+        {pageCount > 1 ? ` · Page ${currentPage + 1} of ${pageCount}` : null}
       </p>
       
       <div className="flex items-center gap-2">
@@ -82,7 +85,7 @@ export function Pagination({
             variant="outline"
             size="sm"
             disabled={!canPrev || disabled}
-            onClick={() => onPageChange(Math.max(0, Math.floor(rangeStart / (rangeEnd - rangeStart + 1)) - 1))}
+            onClick={() => onPageChange(Math.max(0, currentPage - 1))}
           >
             Previous
           </Button>
@@ -91,7 +94,6 @@ export function Pagination({
           <div className="flex items-center gap-1">
             {Array.from({ length: Math.min(5, pageCount) }, (_, i) => {
               let pageNum;
-              const currentPage = Math.floor(rangeStart / (rangeEnd - rangeStart + 1));
               
               if (pageCount <= 5) {
                 pageNum = i;
@@ -124,7 +126,7 @@ export function Pagination({
             variant="outline"
             size="sm"
             disabled={!canNext || disabled}
-            onClick={() => onPageChange(Math.floor(rangeStart / (rangeEnd - rangeStart + 1)) + 1)}
+            onClick={() => onPageChange(currentPage + 1)}
           >
             Next
           </Button>
@@ -137,16 +139,19 @@ export function Pagination({
 // Simple pagination component (backward compatibility)
 export function SimplePagination({
   pagination,
+  pageIndex = 0,
   onPageChange,
   disabled = false,
   className,
 }: {
-  pagination: UsePaginationResult<any>["pagination"];
+  pagination: UsePaginationResult<unknown>["pagination"];
+  pageIndex?: number;
   onPageChange: (page: number) => void;
   disabled?: boolean;
   className?: string;
 }) {
   const { total, pageCount, rangeStart, rangeEnd, canPrev, canNext } = pagination;
+  const currentPage = Math.min(Math.max(pageIndex, 0), Math.max(0, pageCount - 1));
 
   return (
     <div
@@ -159,7 +164,7 @@ export function SimplePagination({
         {total === 0
           ? "No results"
           : `Showing ${rangeStart}-${rangeEnd} of ${total}`}
-        {pageCount > 1 ? ` · Page ${Math.floor(rangeStart / (rangeEnd - rangeStart + 1)) + 1} of ${pageCount}` : null}
+        {pageCount > 1 ? ` · Page ${currentPage + 1} of ${pageCount}` : null}
       </p>
       <div className="flex items-center gap-2">
         <Button
@@ -167,7 +172,7 @@ export function SimplePagination({
           variant="outline"
           size="sm"
           disabled={!canPrev || disabled}
-          onClick={() => onPageChange(Math.max(0, Math.floor(rangeStart / (rangeEnd - rangeStart + 1)) - 1))}
+          onClick={() => onPageChange(Math.max(0, currentPage - 1))}
         >
           Previous
         </Button>
@@ -176,7 +181,7 @@ export function SimplePagination({
           variant="outline"
           size="sm"
           disabled={!canNext || disabled}
-          onClick={() => onPageChange(Math.floor(rangeStart / (rangeEnd - rangeStart + 1)) + 1)}
+          onClick={() => onPageChange(currentPage + 1)}
         >
           Next
         </Button>

@@ -19,6 +19,7 @@ import {
 import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 import { SimplePagination } from "@/components/Pagination";
 import { useServerPagination } from "@/hooks/useServerPagination";
+import { usePermissions } from "@/hooks/usePermissions";
 
 const docTypeLabels: Record<string, string> = {
   "trade-license": "Trade License",
@@ -133,6 +134,7 @@ const DocForm = ({ form, setForm, onSubmit, label, errors = {}, onFieldChange, s
 );
 
 const DocumentsPage = () => {
+  const permissions = usePermissions();
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
   const [statusFilter, setStatusFilter] = useState("all");
@@ -308,31 +310,33 @@ const DocumentsPage = () => {
       <div className="max-w-5xl mx-auto animate-fade-in">
         <div className="flex items-center justify-between mb-6">
           <h1 className="font-heading text-2xl font-semibold text-foreground">Documents ({total})</h1>
-          <Dialog open={addOpen} onOpenChange={(o) => { setAddOpen(o); if (!o) { setForm(emptyForm); setSelectedFile(null); } }}>
-            <DialogTrigger asChild>
-              <Button size="sm" disabled={isOperating}><CheckCircle className="h-4 w-4 mr-1" /> Upload Document</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Upload Document</DialogTitle>
-                {isUploading && (
-                  <div className="text-sm text-muted-foreground mb-2">
-                    Uploading document... Please wait.
-                  </div>
-                )}
-              </DialogHeader>
-              <DocForm 
-                form={form} 
-                setForm={setForm} 
-                onSubmit={handleAdd} 
-                label={isUploading ? "Uploading..." : "Upload Document"} 
-                errors={errors} 
-                onFieldChange={clearFieldError} 
-                selectedFile={selectedFile} 
-                setSelectedFile={setSelectedFile} 
-              />
-            </DialogContent>
-          </Dialog>
+          {permissions.canCreateDocuments && (
+            <Dialog open={addOpen} onOpenChange={(o) => { setAddOpen(o); if (!o) { setForm(emptyForm); setSelectedFile(null); } }}>
+              <DialogTrigger asChild>
+                <Button size="sm" disabled={isOperating}><CheckCircle className="h-4 w-4 mr-1" /> Upload Document</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Upload Document</DialogTitle>
+                  {isUploading && (
+                    <div className="text-sm text-muted-foreground mb-2">
+                      Uploading document... Please wait.
+                    </div>
+                  )}
+                </DialogHeader>
+                <DocForm 
+                  form={form} 
+                  setForm={setForm} 
+                  onSubmit={handleAdd} 
+                  label={isUploading ? "Uploading..." : "Upload Document"} 
+                  errors={errors} 
+                  onFieldChange={clearFieldError} 
+                  selectedFile={selectedFile} 
+                  setSelectedFile={setSelectedFile} 
+                />
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3 mb-4">
@@ -406,28 +410,32 @@ const DocumentsPage = () => {
                               <CheckCircle className="h-3.5 w-3.5" />
                             </button>
                           )}
-                          <button 
-                            onClick={() => openEdit(doc)} 
-                            disabled={doc.status === "complete" || isOperating}
-                            className={`p-1.5 rounded-md transition-colors ${
-                              doc.status === "complete"
-                                ? "text-muted-foreground/50 cursor-not-allowed"
-                                : "text-muted-foreground hover:text-foreground hover:bg-accent"
-                            }`}
-                          >
-                            <Edit className="h-3.5 w-3.5" />
-                          </button>
-                          <button 
-                            onClick={() => deleteDoc(doc.id)} 
-                            disabled={doc.status === "complete" || isOperating}
-                            className={`p-1.5 rounded-md transition-colors ${
-                              doc.status === "complete"
-                                ? "text-muted-foreground/50 cursor-not-allowed"
-                                : "text-muted-foreground hover:text-destructive hover:bg-accent"
-                            }`}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                          {permissions.canEditDocuments && (
+                            <button 
+                              onClick={() => openEdit(doc)} 
+                              disabled={doc.status === "complete" || isOperating}
+                              className={`p-1.5 rounded-md transition-colors ${
+                                doc.status === "complete"
+                                  ? "text-muted-foreground/50 cursor-not-allowed"
+                                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                              }`}
+                            >
+                              <Edit className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          {permissions.canDeleteDocuments && (
+                            <button 
+                              onClick={() => deleteDoc(doc.id)} 
+                              disabled={doc.status === "complete" || isOperating}
+                              className={`p-1.5 rounded-md transition-colors ${
+                                doc.status === "complete"
+                                  ? "text-muted-foreground/50 cursor-not-allowed"
+                                  : "text-muted-foreground hover:text-destructive hover:bg-accent"
+                              }`}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -447,6 +455,7 @@ const DocumentsPage = () => {
             canPrev: pagination.pageIndex > 0,
             canNext: (pagination.pageIndex + 1) * pagination.pageSize < total,
           }}
+          pageIndex={pagination.pageIndex}
           onPageChange={pagination.setPageIndex}
           disabled={isFetching}
         />
