@@ -102,6 +102,9 @@ const EmployeesPage = () => {
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [importErrors, setImportErrors] = useState<string[]>([]);
+  const [importErrorsOpen, setImportErrorsOpen] = useState(false);
+  const [importSummary, setImportSummary] = useState<{ imported: number; total: number } | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [form, setForm] = useState(emptyForm);
@@ -133,7 +136,20 @@ const EmployeesPage = () => {
   const updateEmployee = useUpdateEmployee(authUserId);
   const deleteEmployeeMutation = useDeleteEmployee(authUserId);
   const exportEmployees = useExportEmployees(authUserId);
-  const importEmployees = useImportEmployees(authUserId);
+  const importEmployees = useImportEmployees(authUserId, {
+    onSuccess: (result) => {
+      if (result.errors && result.errors.length > 0) {
+        setImportErrors(result.errors);
+        setImportSummary({ imported: result.imported, total: result.imported + result.errors.length });
+        setImportErrorsOpen(true);
+      } else {
+        toast({
+          title: 'Employees imported successfully',
+          description: `${result.imported} employees have been imported.`,
+        })
+      }
+    }
+  });
 
   const isSubmitting = createEmployee.isPending || updateEmployee.isPending || deleteEmployeeMutation.isPending || exportEmployees.isPending || importEmployees.isPending;
 
@@ -402,6 +418,45 @@ const EmployeesPage = () => {
           <DialogContent>
             <DialogHeader><DialogTitle>Edit Employee</DialogTitle></DialogHeader>
             <EmpForm form={form} setForm={setForm} onSubmit={handleEdit} label="Save Changes" errors={errors} onFieldChange={clearFieldError} isSubmitting={isSubmitting} />
+          </DialogContent>
+        </Dialog>
+
+        {/* Import Errors Dialog */}
+        <Dialog open={importErrorsOpen} onOpenChange={setImportErrorsOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Import Issues</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              {importSummary && (
+                <div className="flex items-center justify-between py-3 border-b">
+                  <span className="text-sm text-muted-foreground">Import Summary</span>
+                  <div className="flex gap-6 text-sm">
+                    <span className="text-green-600">{importSummary.imported} imported</span>
+                    <span className="text-red-600">{importSummary.total - importSummary.imported} failed</span>
+                  </div>
+                </div>
+              )}
+              
+              {importErrors.length > 0 && (
+                <div>
+                  <div className="text-sm font-medium mb-2">Errors:</div>
+                  <div className="bg-muted border rounded-md p-3 max-h-48 overflow-y-auto">
+                    <div className="space-y-1 text-sm font-mono">
+                      {importErrors.map((error, index) => (
+                        <div key={index} className="text-red-600">{error}</div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex justify-end pt-4">
+              <Button onClick={() => setImportErrorsOpen(false)}>
+                Close
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
       </div>

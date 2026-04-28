@@ -266,7 +266,9 @@ export function useExportEmployees(authUserId?: string) {
   })
 }
 
-export function useImportEmployees(authUserId?: string) {
+export function useImportEmployees(authUserId?: string, options?: {
+  onSuccess?: (result: { imported: number; errors?: string[] }) => void;
+}) {
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -279,10 +281,31 @@ export function useImportEmployees(authUserId?: string) {
     },
     onSuccess: (result) => {
       invalidateEmployees(queryClient, authUserId)
-      toast({
-        title: 'Employees imported successfully',
-        description: `${result.imported} employees have been imported.${result.errors && result.errors.length > 0 ? ` ${result.errors.length} errors found.` : ''}`,
-      })
+      
+      // Ensure we have the required data for the callback
+      const successData = {
+        imported: result.imported || 0,
+        errors: result.errors
+      }
+      
+      // Call custom success handler if provided
+      if (options?.onSuccess) {
+        options.onSuccess(successData)
+      } else {
+        // Default behavior
+        if (result.errors && result.errors.length > 0) {
+          toast({
+            title: 'Import completed with issues',
+            description: `${result.imported} employees imported, ${result.errors.length} errors found.`,
+            variant: 'destructive',
+          })
+        } else {
+          toast({
+            title: 'Employees imported successfully',
+            description: `${result.imported} employees have been imported.`,
+          })
+        }
+      }
     },
     onError: (error) => {
       toast({

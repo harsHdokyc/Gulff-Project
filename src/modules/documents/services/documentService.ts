@@ -131,7 +131,9 @@ class DocumentService {
 
     // Upload file if provided
     if (file) {
-      const uploadResult = await this.uploadDocument(file)
+      // Determine document type based on document data
+      const documentType = data.type === 'insurance' || data.type === 'lease' ? 'employee' : 'org'
+      const uploadResult = await this.uploadDocument(file, userData.company_id, documentType)
       filePath = uploadResult.path
       fileSize = file.size
       mimeType = file.type
@@ -203,9 +205,12 @@ class DocumentService {
     return data
   }
 
-  async uploadDocument(file: File): Promise<{ path: string }> {
+  async uploadDocument(file: File, companyId: string, documentType: 'employee' | 'org'): Promise<{ path: string }> {
     this.validateFile(file)
 
+    // Get organization name for folder structure
+    const orgName = await this.getOrganizationName(companyId)
+    
     // Generate secure filename with timestamp and random string
     const fileExt = file.name.split('.').pop()?.toLowerCase()
     if (!fileExt) {
@@ -215,7 +220,8 @@ class DocumentService {
     const timestamp = Date.now()
     const randomStr = Math.random().toString(36).substring(2, 8)
     const fileName = `${timestamp}-${randomStr}.${fileExt}`
-    const filePath = `documents/${fileName}`
+    const folderName = documentType === 'employee' ? 'employeeDocument' : 'orgDocument'
+    const filePath = `${orgName}/${folderName}/${fileName}`
 
     const { data, error } = await supabase.storage
       .from('documents')
@@ -249,6 +255,25 @@ class DocumentService {
 
     if (error) throw error
     return data.signedUrl
+  }
+
+  private async getOrganizationName(companyId: string): Promise<string> {
+    const { data, error } = await supabase
+      .from('companies')
+      .select('name')
+      .eq('id', companyId)
+      .single()
+    
+    if (error || !data?.name) {
+      throw new Error('Organization not found')
+    }
+    
+    // Sanitize organization name for folder structure
+    return data.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
   }
 
   private validateFile(file: File): void {
