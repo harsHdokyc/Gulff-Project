@@ -3,11 +3,11 @@
 
 import twilio from 'twilio';
 
-// Your actual Twilio credentials
-const accountSid = 'ACa4a3c82c2522ccc311b6329574514c73';
-const authToken = '5d8b3e2eb82c67c4cda9c04061e4a5d1';
-const twilioNumber = 'whatsapp:+14155238886';
-const yourNumber = 'whatsapp:+917742054087';
+// Your Twilio credentials - use environment variables
+const accountSid = process.env.TWILIO_ACCOUNT_SID || 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
+const authToken = process.env.TWILIO_AUTH_TOKEN || 'your_auth_token';
+const twilioNumber = process.env.TWILIO_WHATSAPP_NUMBER || 'whatsapp:+14155238886';
+const yourNumber = process.env.YOUR_WHATSAPP_NUMBER;
 
 const client = twilio(accountSid, authToken);
 
@@ -48,8 +48,12 @@ async function testWhatsApp() {
 
 // Check credentials function
 function checkCredentials() {
-  if (accountSid === 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' || authToken === 'your_auth_token') {
-    console.log('❌ Please update your credentials in this file');
+  if (!accountSid || !authToken || !twilioNumber || !yourNumber) {
+    console.log('❌ Please set all required environment variables:');
+    console.log('   TWILIO_ACCOUNT_SID');
+    console.log('   TWILIO_AUTH_TOKEN');
+    console.log('   TWILIO_WHATSAPP_NUMBER');
+    console.log('   YOUR_WHATSAPP_NUMBER');
     return false;
   }
   return true;
