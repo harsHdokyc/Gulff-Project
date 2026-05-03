@@ -9,10 +9,6 @@ export function useOrganizationRouting() {
   const { user } = useAuthContext();
   const { data: proCompanies, isLoading: proCompaniesLoading, error: proCompaniesError } = useProCompanies(user?.id);
 
-  console.log('🔄 [useOrganizationRouting] User ID:', user?.id);
-  console.log('🔄 [useOrganizationRouting] Pro companies data:', proCompanies);
-  console.log('🔄 [useOrganizationRouting] Pro companies loading:', proCompaniesLoading);
-  console.log('🔄 [useOrganizationRouting] Pro companies error:', proCompaniesError);
 
   // Get current organization ID from URL or fallback
   const getCurrentOrgId = (): string | null => {
@@ -39,12 +35,8 @@ export function useOrganizationRouting() {
 
   // Handle organization switching
   const switchOrganization = (newOrgId: string) => {
-    console.log('🔄 [useOrganizationRouting] Switching to organization:', newOrgId);
-    console.log('🔄 [useOrganizationRouting] Available companies:', proCompanies);
-    console.log('🔄 [useOrganizationRouting] Has access check:', hasOrgAccess(newOrgId));
     
     if (!hasOrgAccess(newOrgId)) {
-      console.error('❌ [useOrganizationRouting] User does not have access to organization:', newOrgId);
       return;
     }
     
@@ -54,9 +46,6 @@ export function useOrganizationRouting() {
     const pathIndex = pathSegments.indexOf('org') + 2; // Get index after org/:orgId
     const currentRoute = pathSegments[pathIndex] || 'dashboard';
     
-    console.log('🔄 [useOrganizationRouting] Current path:', currentPath);
-    console.log('🔄 [useOrganizationRouting] Current route:', currentRoute);
-    console.log('🔄 [useOrganizationRouting] Navigating to:', newOrgId, currentRoute);
     
     navigateToOrg(newOrgId, currentRoute);
   };

@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { NotificationTriggers } from '@/modules/notifications/utils/notificationTriggers'
 
 export interface Document {
   id: string
@@ -66,33 +67,81 @@ class DocumentService {
     const from = Math.max(page, 0) * safeSize
     const to = from + safeSize - 1
 
-    let query = supabase
-      .from('documents')
-      .select('*', { count: 'exact' })
+    try {
+      // Set organization context for PRO users if organizationId is provided and valid
+      if (organizationId && organizationId.trim() !== '') {
+        await supabase.rpc('set_organization_context_text', { org_id: organizationId });
+      }
 
-    // Filter by organization if provided
-    if (organizationId) {
-      console.log('📄 [DocumentService.getDocumentsPage] Filtering by organizationId:', organizationId);
-      query = query.eq('company_id', organizationId)
-    } else {
-      console.log('📄 [DocumentService.getDocumentsPage] No organizationId filter - fetching all documents');
-    }
+      let query = supabase
+        .from('documents')
+        .select('*', { count: 'exact' });
 
-    query = query.order('created_at', { ascending: false })
+      // Filter by organization if provided (this is now handled by RLS policy)
+      // but we keep it for non-PRO users and as a fallback
+      if (organizationId) {
+        query = query.eq('company_id', organizationId);
+      }
 
-    if (search?.trim()) {
-      query = query.ilike('name', `%${search.trim()}%`)
-    }
-    if (status) {
-      query = query.eq('status', status)
-    }
+      query = query.order('created_at', { ascending: false });
 
-    const { data, error, count } = await query.range(from, to)
+      if (search?.trim()) {
+        query = query.ilike('name', `%${search.trim()}%`);
+      }
+      if (status) {
+        query = query.eq('status', status);
+      }
 
-    if (error) throw error
-    return {
-      documents: data || [],
-      total: count ?? 0,
+      const { data, error, count } = await query.range(from, to);
+
+      if (error) throw error;
+
+      // Check for notification triggers
+      if (data && data.length > 0) {
+        // Get company_id from first document for notification context
+        const companyId = data[0]?.company_id;
+        if (companyId) {
+          console.log('🔔 DOCUMENT NOTIFICATION TRIGGER:', {
+            companyId,
+            totalDocuments: data.length,
+            documents: data.map(doc => ({
+              id: doc.id,
+              name: doc.name,
+              type: doc.type,
+              expiry_date: doc.expiry_date,
+              status: doc.status,
+              daysUntilExpiry: doc.expiry_date ? Math.ceil((new Date(doc.expiry_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : null
+            }))
+          });
+          
+          NotificationTriggers.checkDocuments(data, companyId)
+            .then((result) => {
+              console.log('✅ DOCUMENT NOTIFICATION RESULT:', result);
+            })
+            .catch((error) => {
+              console.error('❌ DOCUMENT NOTIFICATION ERROR:', error);
+            });
+        }
+      } else {
+        console.log('📄 NO DOCUMENTS FOUND - No notifications triggered');
+      }
+
+      return {
+        documents: data || [],
+        total: count ?? 0,
+      };
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+      throw error;
+    } finally {
+      // Always clear organization context to prevent bleeding between queries
+      if (organizationId && organizationId.trim() !== '') {
+        try {
+          await supabase.rpc('clear_organization_context');
+        } catch (clearError) {
+          console.warn('Failed to clear organization context:', clearError);
+        }
+      }
     }
   }
 

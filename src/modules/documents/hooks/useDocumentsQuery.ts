@@ -13,9 +13,9 @@ import { useCurrentOrganization } from '@/hooks/useCurrentOrganization'
 export const documentKeys = {
   all: ['documents'] as const,
   lists: () => [...documentKeys.all, 'list'] as const,
-  list: () => [...documentKeys.lists()] as const,
-  page: (pageIndex: number, pageSize: number, search: string, statusKey: string) =>
-    [...documentKeys.all, 'page', pageIndex, pageSize, search, statusKey] as const,
+  list: (organizationId?: string) => [...documentKeys.lists(), { organizationId }] as const,
+  page: (pageIndex: number, pageSize: number, search: string, statusKey: string, organizationId?: string) =>
+    [...documentKeys.all, 'page', pageIndex, pageSize, search, statusKey, { organizationId }] as const,
 }
 
 function useInvalidateDocumentsOnRealtime() {
@@ -32,6 +32,7 @@ function useInvalidateDocumentsOnRealtime() {
 
 export function useDocuments() {
   useInvalidateDocumentsOnRealtime()
+  const { organizationId } = useCurrentOrganization()
 
   const {
     data: documents = [],
@@ -39,7 +40,7 @@ export function useDocuments() {
     error,
     refetch
   } = useQuery({
-    queryKey: documentKeys.list(),
+    queryKey: documentKeys.list(organizationId),
     queryFn: () => documentService.getDocuments(),
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
@@ -80,15 +81,10 @@ export function useDocumentsPage(params: {
     organizationId: organizationId || undefined,
   }
 
-  console.log('📄 [useDocumentsPage] Query parameters:', queryParams);
-  console.log('📄 [useDocumentsPage] Organization ID from hook:', organizationId);
 
   const query = useQuery({
-    queryKey: documentKeys.page(pageIndex, pageSize, search.trim(), statusKey),
-    queryFn: () => {
-      console.log('📄 [useDocumentsPage] Executing query with params:', queryParams);
-      return documentService.getDocumentsPage(queryParams);
-    },
+    queryKey: documentKeys.page(pageIndex, pageSize, search.trim(), statusKey, organizationId),
+    queryFn: () => documentService.getDocumentsPage(queryParams),
     placeholderData: keepPreviousData,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
@@ -103,13 +99,6 @@ export function useDocumentsPage(params: {
   const documents = query.data?.documents ?? []
   const total = query.data?.total ?? 0
 
-  console.log('📄 [useDocumentsPage] Query result:', {
-    documentsCount: documents.length,
-    total,
-    isLoading: query.isLoading,
-    error: query.error?.message,
-    documents: documents.slice(0, 3) // Show first 3 documents for debugging
-  });
 
   return {
     documents,
@@ -123,12 +112,14 @@ export function useDocumentsPage(params: {
 
 export function useCreateDocument() {
   const queryClient = useQueryClient()
+  const { organizationId } = useCurrentOrganization()
 
   return useMutation({
     mutationFn: ({ data, file }: { data: CreateDocumentData; file?: File }) => 
       documentService.createDocument(data, file),
     onSuccess: (newDocument) => {
       queryClient.invalidateQueries({ queryKey: documentKeys.all })
+      queryClient.invalidateQueries({ queryKey: documentKeys.list(organizationId) })
       
       toast({
         title: "Document uploaded",
@@ -158,12 +149,14 @@ export function useCreateDocument() {
 
 export function useUpdateDocument() {
   const queryClient = useQueryClient()
+  const { organizationId } = useCurrentOrganization()
 
   return useMutation({
     mutationFn: ({ id, updates }: { id: string; updates: UpdateDocumentData }) => 
       documentService.updateDocument(id, updates),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: documentKeys.all })
+      queryClient.invalidateQueries({ queryKey: documentKeys.list(organizationId) })
       
       toast({
         title: "Document updated",
@@ -182,11 +175,13 @@ export function useUpdateDocument() {
 
 export function useDeleteDocument() {
   const queryClient = useQueryClient()
+  const { organizationId } = useCurrentOrganization()
 
   return useMutation({
     mutationFn: (id: string) => documentService.deleteDocument(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: documentKeys.all })
+      queryClient.invalidateQueries({ queryKey: documentKeys.list(organizationId) })
       
       toast({
         title: "Document deleted",
@@ -241,11 +236,13 @@ export function useDownloadDocument() {
 
 export function useMarkDocumentComplete() {
   const queryClient = useQueryClient()
+  const { organizationId } = useCurrentOrganization()
 
   return useMutation({
     mutationFn: (id: string) => documentService.markDocumentComplete(id),
     onSuccess: (updatedDocument) => {
       queryClient.invalidateQueries({ queryKey: documentKeys.all })
+      queryClient.invalidateQueries({ queryKey: documentKeys.list(organizationId) })
       queryClient.invalidateQueries({ queryKey: documentSummaryKeys.all })
 
       toast({

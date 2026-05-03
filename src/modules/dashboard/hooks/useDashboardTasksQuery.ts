@@ -7,9 +7,9 @@ import { useCurrentOrganization } from '@/hooks/useCurrentOrganization'
 export const taskKeys = {
   all: ['tasks'] as const,
   lists: () => [...taskKeys.all, 'list'] as const,
-  list: () => [...taskKeys.lists()] as const,
-  stats: () => [...taskKeys.all, 'stats'] as const,
-  alerts: () => [...taskKeys.all, 'alerts'] as const,
+  list: (organizationId?: string) => [...taskKeys.lists(), { organizationId }] as const,
+  stats: (organizationId?: string) => [...taskKeys.all, 'stats', { organizationId }] as const,
+  alerts: (organizationId?: string) => [...taskKeys.all, 'alerts', { organizationId }] as const,
 }
 
 export function useTasks(params?: { pageIndex?: number; pageSize?: number; priority?: string; status?: string; search?: string }) {
@@ -22,8 +22,6 @@ export function useTasks(params?: { pageIndex?: number; pageSize?: number; prior
     organizationId: organizationId || undefined,
   }
 
-  console.log('📋 [useTasks] Query parameters:', queryParams);
-  console.log('📋 [useTasks] Organization ID from hook:', organizationId);
 
   const {
     data: tasksData,
@@ -32,11 +30,8 @@ export function useTasks(params?: { pageIndex?: number; pageSize?: number; prior
     refetch,
     isFetching
   } = useQuery({
-    queryKey: [...taskKeys.list(), queryParams],
-    queryFn: () => {
-      console.log('📋 [useTasks] Executing query with params:', queryParams);
-      return taskService.getTasks(queryParams);
-    },
+    queryKey: taskKeys.list(organizationId || undefined),
+    queryFn: () => taskService.getTasks(queryParams),
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
     retry: 3,
@@ -44,22 +39,16 @@ export function useTasks(params?: { pageIndex?: number; pageSize?: number; prior
 
   useEffect(() => {
     const subscription = taskService.subscribeToTasks((payload) => {
-      queryClient.invalidateQueries({ queryKey: taskKeys.list() })
+      queryClient.invalidateQueries({ queryKey: taskKeys.list(organizationId || undefined) })
     })
 
     return () => {
       subscription.unsubscribe()
     }
-  }, [queryClient])
+  }, [queryClient, organizationId])
 
   const tasks = tasksData?.tasks ?? []
 
-  console.log('📋 [useTasks] Query result:', {
-    tasksCount: tasks.length,
-    isLoading,
-    error: error?.message,
-    tasks: tasks.slice(0, 3) // Show first 3 tasks for debugging
-  });
 
   return {
     tasks,
@@ -72,9 +61,10 @@ export function useTasks(params?: { pageIndex?: number; pageSize?: number; prior
 
 export function useTaskStats() {
   const { tasks } = useTasks()
+  const { organizationId } = useCurrentOrganization()
 
   return useQuery({
-    queryKey: taskKeys.stats(),
+    queryKey: taskKeys.stats(organizationId || undefined),
     queryFn: () => taskService.getTaskStats(tasks),
     staleTime: 1 * 60 * 1000, // 1 minute
     enabled: !!tasks.length,
@@ -83,9 +73,10 @@ export function useTaskStats() {
 
 export function useTaskAlerts() {
   const { tasks } = useTasks()
+  const { organizationId } = useCurrentOrganization()
 
   return useQuery({
-    queryKey: taskKeys.alerts(),
+    queryKey: taskKeys.alerts(organizationId || undefined),
     queryFn: () => taskService.getTaskAlerts(tasks),
     staleTime: 1 * 60 * 1000, // 1 minute
     enabled: !!tasks.length,
@@ -94,13 +85,14 @@ export function useTaskAlerts() {
 
 export function useCreateTask() {
   const queryClient = useQueryClient()
+  const { organizationId } = useCurrentOrganization()
 
   return useMutation({
     mutationFn: (taskData: CreateTaskData) => taskService.createTask(taskData),
     onSuccess: (newTask) => {
-      queryClient.invalidateQueries({ queryKey: taskKeys.list() })
-      queryClient.invalidateQueries({ queryKey: taskKeys.stats() })
-      queryClient.invalidateQueries({ queryKey: taskKeys.alerts() })
+      queryClient.invalidateQueries({ queryKey: taskKeys.list(organizationId || undefined) })
+      queryClient.invalidateQueries({ queryKey: taskKeys.stats(organizationId || undefined) })
+      queryClient.invalidateQueries({ queryKey: taskKeys.alerts(organizationId || undefined) })
       
       toast({
         title: "Task created",
@@ -120,14 +112,15 @@ export function useCreateTask() {
 
 export function useUpdateTask() {
   const queryClient = useQueryClient()
+  const { organizationId } = useCurrentOrganization()
 
   return useMutation({
     mutationFn: ({ id, updates }: { id: string; updates: UpdateTaskData }) => 
       taskService.updateTask(id, updates),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: taskKeys.list() })
-      queryClient.invalidateQueries({ queryKey: taskKeys.stats() })
-      queryClient.invalidateQueries({ queryKey: taskKeys.alerts() })
+      queryClient.invalidateQueries({ queryKey: taskKeys.list(organizationId || undefined) })
+      queryClient.invalidateQueries({ queryKey: taskKeys.stats(organizationId || undefined) })
+      queryClient.invalidateQueries({ queryKey: taskKeys.alerts(organizationId || undefined) })
       
       toast({
         title: "Task updated",
@@ -146,13 +139,14 @@ export function useUpdateTask() {
 
 export function useDeleteTask() {
   const queryClient = useQueryClient()
+  const { organizationId } = useCurrentOrganization()
 
   return useMutation({
     mutationFn: (id: string) => taskService.deleteTask(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: taskKeys.list() })
-      queryClient.invalidateQueries({ queryKey: taskKeys.stats() })
-      queryClient.invalidateQueries({ queryKey: taskKeys.alerts() })
+      queryClient.invalidateQueries({ queryKey: taskKeys.list(organizationId || undefined) })
+      queryClient.invalidateQueries({ queryKey: taskKeys.stats(organizationId || undefined) })
+      queryClient.invalidateQueries({ queryKey: taskKeys.alerts(organizationId || undefined) })
       
       toast({
         title: "Task deleted",

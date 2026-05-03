@@ -22,6 +22,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useTranslation } from "react-i18next";
 
 // Helper function to truncate text
 const truncateText = (text: string, maxLength: number = 30) => {
@@ -41,14 +42,17 @@ interface TaskFormProps {
   isLoading?: boolean;
 }
 
-const TaskForm = ({ form, setForm, onSubmit, submitLabel, errors = {}, onFieldChange, isLoading = false }: TaskFormProps) => (
+const TaskForm = ({ form, setForm, onSubmit, submitLabel, errors = {}, onFieldChange, isLoading = false }: TaskFormProps) => {
+  const { t } = useTranslation();
+  
+  return (
   <div className="space-y-4 mt-2">
     <div className="space-y-2">
       <Label className="flex items-center gap-1">
-        Task Type <span className="text-destructive">*</span>
+        {t('compliance.documentType')} <span className="text-destructive">*</span>
       </Label>
       <Input 
-        placeholder="e.g., Trade License Renewal" 
+        placeholder={t('compliance.documentType')} 
         value={form.type} 
         onChange={(e) => {
           const value = e.target.value;
@@ -64,7 +68,7 @@ const TaskForm = ({ form, setForm, onSubmit, submitLabel, errors = {}, onFieldCh
     </div>
     <div className="space-y-2">
       <Label className="flex items-center gap-1">
-        Due Date <span className="text-destructive">*</span>
+        {t('compliance.expiryDate')} <span className="text-destructive">*</span>
       </Label>
       <Input 
         type="date" 
@@ -80,7 +84,7 @@ const TaskForm = ({ form, setForm, onSubmit, submitLabel, errors = {}, onFieldCh
     </div>
     <div className="space-y-2">
       <Label className="flex items-center gap-1">
-        Priority <span className="text-destructive">*</span>
+        {t('common.priority')} <span className="text-destructive">*</span>
       </Label>
       <Select 
         value={form.priority} 
@@ -90,20 +94,20 @@ const TaskForm = ({ form, setForm, onSubmit, submitLabel, errors = {}, onFieldCh
         }}
       >
         <SelectTrigger className={errors.priority ? "border-destructive" : ""}>
-          <SelectValue placeholder="Select priority" />
+          <SelectValue placeholder={t('common.priority')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="high">High</SelectItem>
-          <SelectItem value="medium">Medium</SelectItem>
-          <SelectItem value="low">Low</SelectItem>
+          <SelectItem value="high">{t('common.high')}</SelectItem>
+          <SelectItem value="medium">{t('common.medium')}</SelectItem>
+          <SelectItem value="low">{t('common.low')}</SelectItem>
         </SelectContent>
       </Select>
       {errors.priority && <p className="text-xs text-destructive">{errors.priority}</p>}
     </div>
     <div className="space-y-2">
-      <Label>Notes</Label>
+      <Label>{t('common.description')}</Label>
       <Textarea 
-        placeholder="Additional notes..." 
+        placeholder={t('common.description')} 
         value={form.notes} 
         onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} 
         maxLength={500} 
@@ -114,9 +118,11 @@ const TaskForm = ({ form, setForm, onSubmit, submitLabel, errors = {}, onFieldCh
       {submitLabel}
     </Button>
   </div>
-);
+  );
+};
 
 const CompliancePage = () => {
+  const { t } = useTranslation();
   const permissions = usePermissions();
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
@@ -166,32 +172,32 @@ const CompliancePage = () => {
   const total = tasks?.length ?? 0;
 
   const statusFilters: { label: string; value: "all" | "pending" | "completed" | "overdue" }[] = [
-    { label: "All", value: "all" as const },
-    { label: "Pending", value: "pending" as const },
-    { label: "Completed", value: "completed" as const },
-    { label: "Overdue", value: "overdue" as const },
+    { label: t('common.all'), value: "all" as const },
+    { label: t('common.pending'), value: "pending" as const },
+    { label: t('common.completed'), value: "completed" as const },
+    { label: t('common.overdue'), value: "overdue" as const },
   ];
 
   const priorityFilters: { label: string; value: "all" | "high" | "medium" | "low" }[] = [
-    { label: "All Priorities", value: "all" as const },
-    { label: "High", value: "high" as const },
-    { label: "Medium", value: "medium" as const },
-    { label: "Low", value: "low" as const },
+    { label: t('common.all'), value: "all" as const },
+    { label: t('common.high'), value: "high" as const },
+    { label: t('common.medium'), value: "medium" as const },
+    { label: t('common.low'), value: "low" as const },
   ];
 
   const validateForm = () => {
     const newErrors: { type?: string; due_date?: string; priority?: string } = {};
     
     if (!form.type.trim()) {
-      newErrors.type = "Task type is required";
+      newErrors.type = t('validation.required');
     }
     
     if (!form.due_date) {
-      newErrors.due_date = "Due date is required";
+      newErrors.due_date = t('validation.required');
     }
     
     if (!form.priority) {
-      newErrors.priority = "Priority is required";
+      newErrors.priority = t('validation.required');
     }
     
     setErrors(newErrors);
@@ -200,7 +206,7 @@ const CompliancePage = () => {
 
   const handleAdd = () => {
     if (!validateForm()) {
-      toast({ title: "Validation Error", description: "Please fill in all required fields.", variant: "destructive" });
+      toast({ title: t('errors.validationError'), description: t('errors.general'), variant: "destructive" });
       return;
     }
     
@@ -228,7 +234,7 @@ const CompliancePage = () => {
 
   const handleEdit = () => {
     if (!editingId || !validateForm()) {
-      toast({ title: "Validation Error", description: "Please fill in all required fields.", variant: "destructive" });
+      toast({ title: t('errors.validationError'), description: t('errors.general'), variant: "destructive" });
       return;
     }
     
@@ -294,8 +300,8 @@ const CompliancePage = () => {
       <AppLayout>
         <div className="max-w-5xl mx-auto animate-fade-in">
           <div className="text-center py-12">
-            <h2 className="text-lg font-semibold text-destructive mb-2">Error loading tasks</h2>
-            <p className="text-muted-foreground">Please try refreshing the page</p>
+            <h2 className="text-lg font-semibold text-destructive mb-2">{t('errors.loadError')}</h2>
+            <p className="text-muted-foreground">{t('errors.general')}</p>
           </div>
         </div>
       </AppLayout>
@@ -307,15 +313,15 @@ const CompliancePage = () => {
       <TooltipProvider>
         <div className="max-w-5xl mx-auto animate-fade-in">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="font-heading text-2xl font-semibold text-foreground">Compliance Tasks ({total})</h1>
+          <h1 className="font-heading text-2xl font-semibold text-foreground">{t('compliance.title')} ({total})</h1>
           {permissions.canCreateCompliance && (
             <Dialog open={addOpen} onOpenChange={(o) => { setAddOpen(o); if (!o) setForm(emptyForm); }}>
               <DialogTrigger asChild>
-                <Button size="sm"><Plus className="h-4 w-4 mr-1" /> Add Task</Button>
+                <Button size="sm"><Plus className="h-4 w-4 mr-1" /> {t('compliance.addRequirement')}</Button>
               </DialogTrigger>
               <DialogContent>
-                <DialogHeader><DialogTitle>Add Compliance Task</DialogTitle></DialogHeader>
-                <TaskForm form={form} setForm={setForm} onSubmit={handleAdd} submitLabel="Add Task" errors={errors} onFieldChange={clearFieldError} />
+                <DialogHeader><DialogTitle>{t('compliance.addRequirement')}</DialogTitle></DialogHeader>
+                <TaskForm form={form} setForm={setForm} onSubmit={handleAdd} submitLabel={t('common.add')} errors={errors} onFieldChange={clearFieldError} />
               </DialogContent>
             </Dialog>
           )}
@@ -324,11 +330,11 @@ const CompliancePage = () => {
         <div className="flex flex-col sm:flex-row gap-3 mb-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search tasks..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+            <Input placeholder={t('compliance.searchDocuments')} value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
           </div>
           <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
             <SelectTrigger className="w-full sm:w-36">
-              <SelectValue placeholder="Status" />
+              <SelectValue placeholder={t('common.status')} />
             </SelectTrigger>
             <SelectContent>
               {statusFilters.map((f) => (
@@ -338,7 +344,7 @@ const CompliancePage = () => {
           </Select>
           <Select value={priorityFilter} onValueChange={handlePriorityFilterChange}>
             <SelectTrigger className="w-full sm:w-36">
-              <SelectValue placeholder="Priority" />
+              <SelectValue placeholder={t('common.priority')} />
             </SelectTrigger>
             <SelectContent>
               {priorityFilters.map((f) => (
@@ -351,26 +357,26 @@ const CompliancePage = () => {
         <div className="rounded-lg border border-border bg-card overflow-hidden">
           {isFetching && !isLoading && (
             <div className="px-4 py-2 border-b border-border bg-secondary/30 flex items-center justify-end">
-              <span className="text-xs font-normal text-muted-foreground">Updating...</span>
+              <span className="text-xs font-normal text-muted-foreground">{t('common.loading')}...</span>
             </div>
           )}
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-secondary/30">
-                  <th className="text-left px-4 py-3 text-muted-foreground font-medium w-[16.67%]">Type</th>
-                  <th className="text-left px-4 py-3 text-muted-foreground font-medium w-[16.67%]">Due Date</th>
-                  <th className="text-left px-4 py-3 text-muted-foreground font-medium w-[16.67%]">Priority</th>
-                  <th className="text-left px-4 py-3 text-muted-foreground font-medium w-[16.67%]">Status</th>
-                  <th className="text-left px-4 py-3 text-muted-foreground font-medium w-[16.67%]">Notes</th>
-                  <th className="text-right px-4 py-3 text-muted-foreground font-medium w-[16.67%]">Actions</th>
+                  <th className="text-left px-4 py-3 text-muted-foreground font-medium w-[16.67%]">{t('compliance.documentType')}</th>
+                  <th className="text-left px-4 py-3 text-muted-foreground font-medium w-[16.67%]">{t('compliance.expiryDate')}</th>
+                  <th className="text-left px-4 py-3 text-muted-foreground font-medium w-[16.67%]">{t('common.priority')}</th>
+                  <th className="text-left px-4 py-3 text-muted-foreground font-medium w-[16.67%]">{t('common.status')}</th>
+                  <th className="text-left px-4 py-3 text-muted-foreground font-medium w-[16.67%]">{t('common.description')}</th>
+                  <th className="text-right px-4 py-3 text-muted-foreground font-medium w-[16.67%]">{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {isLoading ? (
-                  <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">Loading tasks...</td></tr>
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">{t('common.loading')}...</td></tr>
                 ) : tasks && tasks.length === 0 ? (
-                  <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">No tasks found.</td></tr>
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">{t('compliance.noDocuments')}</td></tr>
                 ) : (
                   tasks.map((task) => (
                     <tr key={task.id} className="hover:bg-accent/50 transition-colors">
@@ -403,7 +409,7 @@ const CompliancePage = () => {
                             </TooltipContent>
                           </Tooltip>
                         ) : (
-                          <span className="text-muted-foreground italic text-xs">No notes</span>
+                          <span className="text-muted-foreground italic text-xs">{t('common.description')}</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-right w-[16.67%]">
@@ -466,8 +472,8 @@ const CompliancePage = () => {
         {/* Edit Dialog */}
         <Dialog open={editOpen} onOpenChange={(o) => { setEditOpen(o); if (!o) { setEditingId(null); setForm(emptyForm); } }}>
           <DialogContent>
-            <DialogHeader><DialogTitle>Edit Task</DialogTitle></DialogHeader>
-            <TaskForm form={form} setForm={setForm} onSubmit={handleEdit} submitLabel="Save Changes" errors={errors} onFieldChange={clearFieldError} />
+            <DialogHeader><DialogTitle>{t('common.edit')} {t('compliance.documentType')}</DialogTitle></DialogHeader>
+            <TaskForm form={form} setForm={setForm} onSubmit={handleEdit} submitLabel={t('common.save')} errors={errors} onFieldChange={clearFieldError} />
           </DialogContent>
         </Dialog>
 
@@ -475,20 +481,20 @@ const CompliancePage = () => {
         <Dialog open={deleteOpen} onOpenChange={(o) => { setDeleteOpen(o); if (!o) setDeletingTask(null); }}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Confirm Delete</DialogTitle>
+              <DialogTitle>{t('common.delete')}</DialogTitle>
             </DialogHeader>
             <div className="py-4">
               <p className="text-sm text-muted-foreground">
-                Are you sure you want to delete the task "<span className="font-medium text-foreground">{deletingTask?.type}</span>"?
+                {t('compliance.deleteConfirm')} "{deletingTask?.type}"?
               </p>
-              <p className="text-xs text-destructive mt-2">This action cannot be undone.</p>
+              <p className="text-xs text-destructive mt-2">{t('errors.deleteError')}</p>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setDeleteOpen(false)}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button variant="destructive" onClick={handleDelete}>
-                Delete Task
+                {t('common.delete')} {t('compliance.documentType')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -498,19 +504,19 @@ const CompliancePage = () => {
         <Dialog open={completeOpen} onOpenChange={(o) => { setCompleteOpen(o); if (!o) setCompletingTask(null); }}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Confirm Completion</DialogTitle>
+              <DialogTitle>{t('common.completed')}</DialogTitle>
             </DialogHeader>
             <div className="py-4">
               <p className="text-sm text-muted-foreground">
-                Are you sure you want to mark the task "<span className="font-medium text-foreground">{completingTask?.type}</span>" as completed?
+                {t('compliance.approveConfirm')} "{completingTask?.type}" {t('common.completed')}?
               </p>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setCompleteOpen(false)}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button onClick={handleComplete}>
-                Mark as Complete
+                {t('common.completed')}
               </Button>
             </DialogFooter>
           </DialogContent>

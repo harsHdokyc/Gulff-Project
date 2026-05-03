@@ -399,15 +399,12 @@ export class UserManagementService {
 
   // Get association requests sent to current PRO user
   async getProAssociationRequests(): Promise<{ success: boolean; data?: ProBusinessRequest[]; error?: string }> {
-    console.log('🔥 getProAssociationRequests method called!');
     try {
       const currentUserId = await this.getCurrentUserId();
       if (!currentUserId) {
         return { success: false, error: 'User not authenticated' };
       }
 
-      console.log('=== Service Debug: getProAssociationRequests ===');
-      console.log('Current User ID:', currentUserId);
 
       // Get requests (without business_name for now until column is added)
       const { data: requests, error: requestsError } = await supabase

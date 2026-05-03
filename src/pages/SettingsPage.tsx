@@ -2,11 +2,16 @@ import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useAuthContext } from "@/modules/auth/components/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { toast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, Building2, User, Users, Phone, Calendar, FileText, Shield, CreditCard, TrendingUp } from "lucide-react";
 import { validateAlphabeticText, isValidAlphabeticInput } from "@/modules/auth/services/formValidation";
 
 interface CompanyData {
@@ -21,6 +26,7 @@ interface CompanyData {
 }
 
 const SettingsPage = () => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<"company" | "billing">("company");
   const [companyData, setCompanyData] = useState<CompanyData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,8 +51,8 @@ const SettingsPage = () => {
         // User doesn't have a company, show onboarding message
         setCompanyData(null);
         toast({
-          title: "No Company Data",
-          description: "Please complete onboarding first",
+          title: t('errors.general'),
+          description: t('settings.noCompanyDataDesc'),
           variant: "destructive"
         });
         setLoading(false);
@@ -67,15 +73,15 @@ const SettingsPage = () => {
       
       if (!company) {
         toast({
-          title: "No Company Data",
-          description: "Please complete onboarding first",
+          title: t('errors.general'),
+          description: t('settings.noCompanyDataDesc'),
           variant: "destructive"
         });
       }
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Failed to load company data",
+        title: t('errors.general'),
+        description: t('errors.networkError'),
         variant: "destructive"
       });
     } finally {
@@ -104,13 +110,13 @@ const SettingsPage = () => {
       if (error) throw error;
 
       toast({
-        title: "Success",
+        title: t('common.save'),
         description: "Company settings updated successfully"
       });
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Failed to update company settings",
+        title: t('errors.general'),
+        description: t('errors.networkError'),
         variant: "destructive"
       });
     } finally {
@@ -130,135 +136,263 @@ const SettingsPage = () => {
 
   return (
     <AppLayout>
-      <div className="max-w-2xl mx-auto animate-fade-in">
-        <h1 className="font-heading text-2xl font-semibold text-foreground mb-6">Settings</h1>
-
-        {/* Tabs */}
-        <div className="flex gap-1.5 mb-6">
-          {(["company", "billing"] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-3 py-1.5 rounded-md text-sm capitalize transition-colors ${
-                activeTab === tab ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:text-foreground hover:bg-accent"
-              }`}
-            >
-              {tab === "company" ? "Company Settings" : "Billing"}
-            </button>
-          ))}
+      <div className="max-w-4xl mx-auto animate-fade-in space-y-6">
+        {/* Header */}
+        <div>
+          <h1 className="font-heading text-3xl font-bold text-foreground">{t('settings.title')}</h1>
+          <p className="text-muted-foreground mt-1">{t('settings.subtitle')}</p>
         </div>
 
-        {activeTab === "company" && (
-          <div className="rounded-lg border border-border bg-card p-6 space-y-4">
+        {/* Modern Tabs */}
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "company" | "billing")}>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="company" className="flex items-center gap-2">
+              <Building2 className="w-4 h-4" />
+              {t('settings.companySettings')}
+            </TabsTrigger>
+            <TabsTrigger value="billing" className="flex items-center gap-2">
+              <CreditCard className="w-4 h-4" />
+              {t('settings.billing')}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="company" className="space-y-6 mt-6">
             {companyData ? (
               <>
-                <div className="space-y-2">
-                  <Label>Company Name</Label>
-                  <Input 
-                    value={companyData.name}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (isValidAlphabeticInput(value)) {
-                        setCompanyData({...companyData, name: validateAlphabeticText(value)});
-                      }
-                    }}
-                    placeholder="Enter company name"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Business Type</Label>
-                  <Input 
-                    value={companyData.business_type}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (isValidAlphabeticInput(value)) {
-                        setCompanyData({...companyData, business_type: validateAlphabeticText(value)});
-                      }
-                    }}
-                    placeholder="Enter business type"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Employee Count</Label>
-                  <Input 
-                    value={companyData.employee_count}
-                    onChange={(e) => setCompanyData({...companyData, employee_count: e.target.value})}
-                    placeholder="Enter employee count range"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Owner Name</Label>
-                  <Input 
-                    value={companyData.owner_name}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (isValidAlphabeticInput(value)) {
-                        setCompanyData({...companyData, owner_name: validateAlphabeticText(value)});
-                      }
-                    }}
-                    placeholder="Enter owner name"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>WhatsApp Number</Label>
-                  <Input 
-                    value={companyData.whatsapp}
-                    onChange={(e) => setCompanyData({...companyData, whatsapp: e.target.value})}
-                    placeholder="Enter WhatsApp number"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Trade License Expiry</Label>
-                  <Input 
-                    type="date"
-                    value={companyData.trade_license_expiry || ''}
-                    onChange={(e) => setCompanyData({...companyData, trade_license_expiry: e.target.value})}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Visa Count</Label>
-                  <Input 
-                    type="number"
-                    value={companyData.visa_count || ''}
-                    onChange={(e) => setCompanyData({...companyData, visa_count: parseInt(e.target.value) || 0})}
-                    placeholder="Enter visa count"
-                  />
-                </div>
-                <Button onClick={handleSaveCompany} disabled={saving}>
-                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Save Changes
-                </Button>
+                {/* Company Information Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Building2 className="w-5 h-5 text-primary" />
+                      {t('settings.companyInformation')}
+                    </CardTitle>
+                    <CardDescription>
+                      {t('settings.companyInformationDesc')}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="company-name" className="flex items-center gap-2">
+                          <Building2 className="w-4 h-4 text-muted-foreground" />
+                          {t('settings.companyName')}
+                        </Label>
+                        <Input 
+                          id="company-name"
+                          value={companyData.name}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (isValidAlphabeticInput(value)) {
+                              setCompanyData({...companyData, name: validateAlphabeticText(value)});
+                            }
+                          }}
+                          placeholder="Enter company name"
+                          className="transition-all focus:ring-2 focus:ring-primary/20"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="business-type" className="flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-muted-foreground" />
+                          {t('settings.businessType')}
+                        </Label>
+                        <Input 
+                          id="business-type"
+                          value={companyData.business_type}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (isValidAlphabeticInput(value)) {
+                              setCompanyData({...companyData, business_type: validateAlphabeticText(value)});
+                            }
+                          }}
+                          placeholder="Enter business type"
+                          className="transition-all focus:ring-2 focus:ring-primary/20"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="employee-count" className="flex items-center gap-2">
+                          <Users className="w-4 h-4 text-muted-foreground" />
+                          {t('settings.employeeCount')}
+                        </Label>
+                        <Input 
+                          id="employee-count"
+                          value={companyData.employee_count}
+                          onChange={(e) => setCompanyData({...companyData, employee_count: e.target.value})}
+                          placeholder="Enter employee count range"
+                          className="transition-all focus:ring-2 focus:ring-primary/20"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="owner-name" className="flex items-center gap-2">
+                          <User className="w-4 h-4 text-muted-foreground" />
+                          {t('settings.ownerName')}
+                        </Label>
+                        <Input 
+                          id="owner-name"
+                          value={companyData.owner_name}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            if (isValidAlphabeticInput(value)) {
+                              setCompanyData({...companyData, owner_name: validateAlphabeticText(value)});
+                            }
+                          }}
+                          placeholder="Enter owner name"
+                          className="transition-all focus:ring-2 focus:ring-primary/20"
+                        />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Contact & Compliance Card */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Phone className="w-5 h-5 text-primary" />
+                      {t('settings.contactCompliance')}
+                    </CardTitle>
+                    <CardDescription>
+                      {t('settings.contactComplianceDesc')}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="whatsapp" className="flex items-center gap-2">
+                          <Phone className="w-4 h-4 text-muted-foreground" />
+                          {t('settings.whatsappNumber')}
+                        </Label>
+                        <Input 
+                          id="whatsapp"
+                          value={companyData.whatsapp}
+                          onChange={(e) => setCompanyData({...companyData, whatsapp: e.target.value})}
+                          placeholder="Enter WhatsApp number"
+                          className="transition-all focus:ring-2 focus:ring-primary/20"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="visa-count" className="flex items-center gap-2">
+                          <Shield className="w-4 h-4 text-muted-foreground" />
+                          {t('settings.visaCount')}
+                        </Label>
+                        <Input 
+                          id="visa-count"
+                          type="number"
+                          value={companyData.visa_count || ''}
+                          onChange={(e) => setCompanyData({...companyData, visa_count: parseInt(e.target.value) || 0})}
+                          placeholder="Enter visa count"
+                          className="transition-all focus:ring-2 focus:ring-primary/20"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="license-expiry" className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-muted-foreground" />
+                        {t('settings.tradeLicenseExpiry')}
+                      </Label>
+                      <Input 
+                        id="license-expiry"
+                        type="date"
+                        value={companyData.trade_license_expiry || ''}
+                        onChange={(e) => setCompanyData({...companyData, trade_license_expiry: e.target.value})}
+                        className="transition-all focus:ring-2 focus:ring-primary/20"
+                      />
+                    </div>
+
+                    <Separator />
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">{t('settings.lastUpdated')}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {new Date().toLocaleDateString('en-US', { 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric' 
+                          })}
+                        </p>
+                      </div>
+                      <Button onClick={handleSaveCompany} disabled={saving} size="lg">
+                        {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {t('settings.saveChanges')}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
               </>
             ) : (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">No company data found. Please complete the onboarding process first.</p>
-                <Button className="mt-4" onClick={() => window.location.href = '/onboarding'}>
-                  Complete Onboarding
-                </Button>
-              </div>
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <Building2 className="w-12 h-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">{t('settings.noCompanyData')}</h3>
+                  <p className="text-muted-foreground text-center mb-6 max-w-md">
+                    {t('settings.noCompanyDataDesc')}
+                  </p>
+                  <Button onClick={() => window.location.href = '/onboarding'} size="lg">
+                    {t('settings.completeOnboarding')}
+                  </Button>
+                </CardContent>
+              </Card>
             )}
-          </div>
-        )}
+          </TabsContent>
 
-        {activeTab === "billing" && (
-          <div className="rounded-lg border border-border bg-card p-6">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between py-2">
-                <span className="text-sm text-muted-foreground">Current Plan</span>
-                <span className="text-sm font-medium text-foreground">Free</span>
-              </div>
-              <div className="flex items-center justify-between py-2 border-t border-border">
-                <span className="text-sm text-muted-foreground">Task Limit</span>
-                <span className="text-sm font-medium text-foreground">50</span>
-              </div>
-              <div className="flex items-center justify-between py-2 border-t border-border">
-                <span className="text-sm text-muted-foreground">Tasks Used</span>
-                <span className="text-sm font-medium text-foreground">24</span>
-              </div>
-              <Button className="w-full mt-2">Upgrade Plan</Button>
-            </div>
-          </div>
-        )}
+          <TabsContent value="billing" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CreditCard className="w-5 h-5 text-primary" />
+                  {t('settings.billingOverview')}
+                </CardTitle>
+                <CardDescription>
+                  {t('settings.billingOverviewDesc')}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4 text-green-600" />
+                      <span className="text-sm font-medium">{t('settings.currentPlan')}</span>
+                    </div>
+                    <Badge variant="secondary" className="text-base px-3 py-1">
+                      {t('settings.free')}
+                    </Badge>
+                  </div>
+                  <div className="space-y-2">
+                    <span className="text-sm font-medium text-muted-foreground">{t('settings.taskLimit')}</span>
+                    <p className="text-2xl font-bold">50</p>
+                  </div>
+                  <div className="space-y-2">
+                    <span className="text-sm font-medium text-muted-foreground">{t('settings.tasksUsed')}</span>
+                    <p className="text-2xl font-bold text-primary">24</p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between py-3 px-4 rounded-lg bg-muted/50">
+                    <span className="text-sm font-medium">{t('settings.monthlyUsage')}</span>
+                    <div className="flex items-center gap-2">
+                      <div className="w-32 h-2 bg-muted rounded-full overflow-hidden">
+                        <div className="w-1/2 h-full bg-primary rounded-full"></div>
+                      </div>
+                      <span className="text-sm text-muted-foreground">48%</span>
+                    </div>
+                  </div>
+                  
+                  <Button className="w-full" size="lg">
+                    <TrendingUp className="w-4 h-4 mr-2" />
+                    {t('settings.upgradePlan')}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </AppLayout>
   );

@@ -8,6 +8,7 @@ import {
   useUpdateAssociationRequest,
 } from "@/modules/user-management/hooks/useUserManagementQuery";
 import { Check, X, Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   pending: "outline",
@@ -16,6 +17,7 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "
 };
 
 const ProAssociationRequestsPage = () => {
+  const { t } = useTranslation();
   const { user } = useAuthContext();
   const authUserId = user?.id;
   const { data: requests = [], isLoading, isError, error, refetch } = useProAssociationRequests(authUserId);
@@ -27,15 +29,15 @@ const ProAssociationRequestsPage = () => {
     <AppLayout>
       <div className="container mx-auto py-8 space-y-6">
         <div>
-          <h1 className="text-2xl font-bold">Association Requests</h1>
+          <h1 className="text-2xl font-bold">{t('associationRequests.proAssociationRequests.title')}</h1>
           <p className="text-muted-foreground">
-            Review business association requests. History stays here even after notifications are read.
+            {t('associationRequests.proAssociationRequests.subtitle')}
           </p>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Pending requests: {pendingCount}</CardTitle>
+            <CardTitle className="text-base">{t('associationRequests.proAssociationRequests.pendingRequests', { count: pendingCount })}</CardTitle>
           </CardHeader>
         </Card>
 
@@ -44,21 +46,21 @@ const ProAssociationRequestsPage = () => {
             {isLoading ? (
               <div className="flex items-center justify-center py-12 text-muted-foreground">
                 <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                Loading requests...
+                {t('associationRequests.proAssociationRequests.loadingRequests')}
               </div>
             ) : isError ? (
               <div className="text-center py-8">
-                <p className="text-destructive font-medium">Could not load association requests</p>
+                <p className="text-destructive font-medium">{t('associationRequests.proAssociationRequests.couldNotLoadRequests')}</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {error instanceof Error ? error.message : "Unknown error"}
+                  {error instanceof Error ? error.message : t('associationRequests.proAssociationRequests.unknownError')}
                 </p>
                 <Button variant="outline" className="mt-3" onClick={() => refetch()}>
-                  Retry
+                  {t('common.retry')}
                 </Button>
               </div>
             ) : requests.length === 0 ? (
               <div className="text-center py-10 text-muted-foreground">
-                No association requests yet.
+                {t('associationRequests.proAssociationRequests.noAssociationRequestsYet')}
               </div>
             ) : (
               <div className="space-y-3">
@@ -66,9 +68,9 @@ const ProAssociationRequestsPage = () => {
                   <div key={request.id} className="rounded-lg border p-4 flex flex-col gap-3">
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <p className="font-medium">{request.business_name || "Unknown business"}</p>
+                        <p className="font-medium">{request.business_name || t('associationRequests.proAssociationRequests.unknownBusiness')}</p>
                         <p className="text-xs text-muted-foreground">
-                          Requested on {new Date(request.created_at).toLocaleString()}
+                          {t('associationRequests.proAssociationRequests.requestedOn')} {new Date(request.created_at).toLocaleString()}
                         </p>
                         {request.message && (
                           <p className="text-sm text-muted-foreground mt-1">{request.message}</p>
@@ -89,7 +91,7 @@ const ProAssociationRequestsPage = () => {
                           disabled={updateRequest.isPending}
                         >
                           <Check className="h-4 w-4 mr-1" />
-                          Accept
+                          {t('associationRequests.accept')}
                         </Button>
                         <Button
                           size="sm"
@@ -100,7 +102,7 @@ const ProAssociationRequestsPage = () => {
                           disabled={updateRequest.isPending}
                         >
                           <X className="h-4 w-4 mr-1" />
-                          Reject
+                          {t('associationRequests.reject')}
                         </Button>
                       </div>
                     )}

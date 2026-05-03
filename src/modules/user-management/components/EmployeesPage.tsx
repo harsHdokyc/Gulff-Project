@@ -25,6 +25,7 @@ import { type Employee } from "@/modules/user-management/services/employeeServic
 import { useDeferredValue } from "react";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Download, Upload } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 
 const emptyForm = { name: "", visaExpiry: "", emiratesIdExpiry: "" };
@@ -39,14 +40,17 @@ interface EmpFormProps {
   isSubmitting?: boolean;
 }
 
-const EmpForm = ({ form, setForm, onSubmit, label, errors = {}, onFieldChange, isSubmitting = false }: EmpFormProps) => (
+const EmpForm = ({ form, setForm, onSubmit, label, errors = {}, onFieldChange, isSubmitting = false }: EmpFormProps) => {
+  const { t } = useTranslation();
+  
+  return (
   <div className="space-y-4 mt-2">
     <div className="space-y-2">
       <Label className="flex items-center gap-1">
-        Employee Name <span className="text-destructive">*</span>
+        {t('employees.firstName')} {t('employees.lastName')} <span className="text-destructive">*</span>
       </Label>
       <Input 
-        placeholder="Full name" 
+        placeholder={`${t('employees.firstName')} ${t('employees.lastName')}`} 
         value={form.name} 
         onChange={(e) => {
           const value = e.target.value;
@@ -62,7 +66,7 @@ const EmpForm = ({ form, setForm, onSubmit, label, errors = {}, onFieldChange, i
     </div>
     <div className="space-y-2">
       <Label className="flex items-center gap-1">
-        Visa Expiry Date <span className="text-destructive">*</span>
+        {t('employees.visaExpiry')} <span className="text-destructive">*</span>
       </Label>
       <Input 
         type="date" 
@@ -70,14 +74,14 @@ const EmpForm = ({ form, setForm, onSubmit, label, errors = {}, onFieldChange, i
         onChange={(e) => {
           setForm((p) => ({ ...p, visaExpiry: e.target.value }));
           onFieldChange?.('visaExpiry');
-        }}
+        }} 
         className={errors.visaExpiry ? "border-destructive" : ""}
       />
       {errors.visaExpiry && <p className="text-xs text-destructive">{errors.visaExpiry}</p>}
     </div>
     <div className="space-y-2">
       <Label className="flex items-center gap-1">
-        Emirates ID Expiry Date <span className="text-destructive">*</span>
+        {t('employees.emiratesIdExpiry')} <span className="text-destructive">*</span>
       </Label>
       <Input 
         type="date" 
@@ -85,16 +89,18 @@ const EmpForm = ({ form, setForm, onSubmit, label, errors = {}, onFieldChange, i
         onChange={(e) => {
           setForm((p) => ({ ...p, emiratesIdExpiry: e.target.value }));
           onFieldChange?.('emiratesIdExpiry');
-        }}
+        }} 
         className={errors.emiratesIdExpiry ? "border-destructive" : ""}
       />
       {errors.emiratesIdExpiry && <p className="text-xs text-destructive">{errors.emiratesIdExpiry}</p>}
     </div>
     <Button className="w-full" onClick={onSubmit} disabled={isSubmitting}>{label}</Button>
   </div>
-);
+  );
+};
 
 const EmployeesPage = () => {
+  const { t } = useTranslation();
   const { user } = useAuthContext();
   const authUserId = user?.id;
   const permissions = usePermissions();
@@ -157,15 +163,15 @@ const EmployeesPage = () => {
     const newErrors: { name?: string; visaExpiry?: string; emiratesIdExpiry?: string } = {};
     
     if (!form.name.trim()) {
-      newErrors.name = "Employee name is required";
+      newErrors.name = t('validation.required');
     }
     
     if (!form.visaExpiry) {
-      newErrors.visaExpiry = "Visa expiry date is required";
+      newErrors.visaExpiry = t('validation.required');
     }
     
     if (!form.emiratesIdExpiry) {
-      newErrors.emiratesIdExpiry = "Emirates ID expiry date is required";
+      newErrors.emiratesIdExpiry = t('validation.required');
     }
     
     setErrors(newErrors);
@@ -174,7 +180,7 @@ const EmployeesPage = () => {
 
   const handleAdd = () => {
     if (!validateForm()) {
-      toast({ title: "Validation Error", description: "Please fill in all required fields.", variant: "destructive" });
+      toast({ title: t('errors.validationError'), description: t('errors.general'), variant: "destructive" });
       return;
     }
     
@@ -200,7 +206,7 @@ const EmployeesPage = () => {
 
   const handleEdit = () => {
     if (!editingId || !validateForm()) {
-      toast({ title: "Validation Error", description: "Please fill in all required fields.", variant: "destructive" });
+      toast({ title: t('errors.validationError'), description: t('errors.general'), variant: "destructive" });
       return;
     }
     
@@ -258,8 +264,8 @@ const EmployeesPage = () => {
       <AppLayout>
         <div className="max-w-5xl mx-auto animate-fade-in">
           <div className="text-center py-8">
-            <p className="text-destructive">Failed to load employees. Please try again.</p>
-            <Button onClick={() => refetch()} className="mt-4">Retry</Button>
+            <p className="text-destructive">{t('errors.loadError')}</p>
+            <Button onClick={() => refetch()} className="mt-4">{t('common.refresh')}</Button>
           </div>
         </div>
       </AppLayout>
@@ -271,55 +277,55 @@ const EmployeesPage = () => {
       <div className="max-w-5xl mx-auto animate-fade-in">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="font-heading text-2xl font-semibold text-foreground">Employees ({error ? '—' : employees.length})</h1>
+            <h1 className="font-heading text-2xl font-semibold text-foreground">{t('employees.title')} ({error ? '—' : employees.length})</h1>
           </div>
           <div className="flex gap-2">
             {permissions.canCreateEmployees && (
               <Dialog open={addOpen} onOpenChange={(o) => { setAddOpen(o); if (!o) setForm(emptyForm); }}>
                 <DialogTrigger asChild>
-                  <Button size="sm"><Plus className="h-4 w-4 mr-1" /> Add Employee</Button>
+                  <Button size="sm"><Plus className="h-4 w-4 mr-1" /> {t('employees.addEmployee')}</Button>
                 </DialogTrigger>
                 <DialogContent>
-                  <DialogHeader><DialogTitle>Add Employee</DialogTitle></DialogHeader>
-                  <EmpForm form={form} setForm={setForm} onSubmit={handleAdd} label="Add Employee" errors={errors} onFieldChange={clearFieldError} isSubmitting={isSubmitting} />
+                  <DialogHeader><DialogTitle>{t('employees.addEmployee')}</DialogTitle></DialogHeader>
+                  <EmpForm form={form} setForm={setForm} onSubmit={handleAdd} label={t('employees.addEmployee')} errors={errors} onFieldChange={clearFieldError} isSubmitting={isSubmitting} />
                 </DialogContent>
               </Dialog>
             )}
             <Button size="sm" variant="outline" onClick={handleExportCSV} disabled={isSubmitting || employees.length === 0}>
-              <Download className="h-4 w-4 mr-1" /> Export CSV
+              <Download className="h-4 w-4 mr-1" /> {t('employees.exportCsv')}
             </Button>
             <Dialog open={importOpen} onOpenChange={setImportOpen}>
               <DialogTrigger asChild>
                 <Button size="sm" variant="outline" disabled={isSubmitting}>
-                  <Upload className="h-4 w-4 mr-1" /> Import CSV
+                  <Upload className="h-4 w-4 mr-1" /> {t('employees.importCsv')}
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Import Employees from CSV</DialogTitle>
+                  <DialogTitle>{t('employees.importCsv')}</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div className="text-sm text-muted-foreground">
-                    <p className="font-medium">CSV Format Requirements:</p>
+                    <p className="font-medium">{t('employees.csvFormatRequirements')}:</p>
                     <ul className="list-disc list-inside space-y-1 mt-2">
-                      <li>First row must contain headers: <code className="bg-muted px-1 rounded">name,visa_expiry,emirates_id_expiry</code></li>
-                      <li>Date format: <code className="bg-muted px-1 rounded">YYYY-MM-DD</code></li>
-                      <li>Example file content:</li>
+                      <li>{t('employees.csvHeaders')}: <code className="bg-muted px-1 rounded">{t('employees.csvHeadersList')}</code></li>
+                      <li>{t('employees.dateFormat')}: <code className="bg-muted px-1 rounded">{t('employees.dateFormatValue')}</code></li>
+                      <li>{t('employees.exampleFileContent')}:</li>
                     </ul>
                     <div className="bg-muted p-3 rounded-md mt-2">
                       <pre className="text-xs">
-{`name,visa_expiry,emirates_id_expiry
+{`name,visaexpiry,emiratesidexpiry
 "John Doe","2026-12-31","2026-12-31"
 "Jane Smith","2025-06-15","2025-06-15"
 "Ahmed Hassan","2024-09-20","2024-09-20"`}
                       </pre>
                     </div>
                     <p className="text-xs text-muted-foreground mt-2">
-                      <strong>Note:</strong> First row contains headers only. Data starts from second row.
+                      <strong>{t('common.note')}:</strong> {t('employees.csvNote')}
                     </p>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="csv-file">Choose CSV File</Label>
+                    <Label htmlFor="csv-file">{t('employees.chooseCsvFile')}</Label>
                     <Input
                       id="csv-file"
                       type="file"
@@ -337,15 +343,15 @@ const EmployeesPage = () => {
         <div className="flex flex-col sm:flex-row gap-3 mb-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search employees..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+            <Input placeholder={t('employees.searchEmployees')} value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-36"><SelectValue placeholder="Status" /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-36"><SelectValue placeholder={t('common.status')} /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="warning">Warning</SelectItem>
-              <SelectItem value="expired">Expired</SelectItem>
+              <SelectItem value="all">{t('common.all')}</SelectItem>
+              <SelectItem value="active">{t('employees.active')}</SelectItem>
+              <SelectItem value="warning">{t('employees.warning')}</SelectItem>
+              <SelectItem value="expired">{t('employees.expired')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -355,16 +361,16 @@ const EmployeesPage = () => {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-secondary/30">
-                  <th className="text-left px-4 py-3 text-muted-foreground font-medium">Name</th>
-                  <th className="text-left px-4 py-3 text-muted-foreground font-medium">Visa Expiry</th>
-                  <th className="text-left px-4 py-3 text-muted-foreground font-medium">Emirates ID Expiry</th>
-                  <th className="text-left px-4 py-3 text-muted-foreground font-medium">Status</th>
-                  <th className="text-right px-4 py-3 text-muted-foreground font-medium">Actions</th>
+                  <th className="text-left px-4 py-3 text-muted-foreground font-medium">{t('employees.firstName')}</th>
+                  <th className="text-left px-4 py-3 text-muted-foreground font-medium">{t('employees.visaExpiry')}</th>
+                  <th className="text-left px-4 py-3 text-muted-foreground font-medium">{t('employees.emiratesIdExpiry')}</th>
+                  <th className="text-left px-4 py-3 text-muted-foreground font-medium">{t('common.status')}</th>
+                  <th className="text-right px-4 py-3 text-muted-foreground font-medium">{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {employees.length === 0 ? (
-                  <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">No employees found.</td></tr>
+                  <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">{t('employees.noEmployeesFound')}</td></tr>
                 ) : (
                   employees.map((emp) => (
                     <tr key={emp.id} className="hover:bg-accent/50 transition-colors">
@@ -416,8 +422,8 @@ const EmployeesPage = () => {
 
         <Dialog open={editOpen} onOpenChange={(o) => { setEditOpen(o); if (!o) { setEditingId(null); setForm(emptyForm); } }}>
           <DialogContent>
-            <DialogHeader><DialogTitle>Edit Employee</DialogTitle></DialogHeader>
-            <EmpForm form={form} setForm={setForm} onSubmit={handleEdit} label="Save Changes" errors={errors} onFieldChange={clearFieldError} isSubmitting={isSubmitting} />
+            <DialogHeader><DialogTitle>{t('common.edit')} {t('employees.firstName')} {t('employees.lastName')}</DialogTitle></DialogHeader>
+            <EmpForm form={form} setForm={setForm} onSubmit={handleEdit} label={t('common.save')} errors={errors} onFieldChange={clearFieldError} isSubmitting={isSubmitting} />
           </DialogContent>
         </Dialog>
 
@@ -425,22 +431,22 @@ const EmployeesPage = () => {
         <Dialog open={importErrorsOpen} onOpenChange={setImportErrorsOpen}>
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>Import Issues</DialogTitle>
+              <DialogTitle>{t('employees.importIssues')}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               {importSummary && (
                 <div className="flex items-center justify-between py-3 border-b">
-                  <span className="text-sm text-muted-foreground">Import Summary</span>
+                  <span className="text-sm text-muted-foreground">{t('employees.importSummary')}</span>
                   <div className="flex gap-6 text-sm">
-                    <span className="text-green-600">{importSummary.imported} imported</span>
-                    <span className="text-red-600">{importSummary.total - importSummary.imported} failed</span>
+                    <span className="text-green-600">{importSummary.imported} {t('employees.imported')}</span>
+                    <span className="text-red-600">{importSummary.total - importSummary.imported} {t('employees.failed')}</span>
                   </div>
                 </div>
               )}
               
               {importErrors.length > 0 && (
                 <div>
-                  <div className="text-sm font-medium mb-2">Errors:</div>
+                  <div className="text-sm font-medium mb-2">{t('employees.errors')}:</div>
                   <div className="bg-muted border rounded-md p-3 max-h-48 overflow-y-auto">
                     <div className="space-y-1 text-sm font-mono">
                       {importErrors.map((error, index) => (
@@ -454,7 +460,7 @@ const EmployeesPage = () => {
             
             <div className="flex justify-end pt-4">
               <Button onClick={() => setImportErrorsOpen(false)}>
-                Close
+                {t('common.close')}
               </Button>
             </div>
           </DialogContent>

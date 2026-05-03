@@ -4,6 +4,7 @@ import { Clock, Loader2, FileText, FileCheck } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { useTranslation } from "react-i18next";
 import { useTasks, useTaskStats, useTaskAlerts, useToggleTaskStatus } from "@/modules/dashboard/hooks/useDashboardTasksQuery";
 import { useDocumentSummary, useDocumentAlerts } from "@/modules/documents/hooks/useDocumentSummaryQuery";
 import { useMarkDocumentComplete } from "@/modules/documents/hooks/useDocumentsQuery";
@@ -28,12 +29,19 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+// Helper function to truncate text
+const truncateText = (text: string, maxLength: number = 30) => {
+  if (!text || text.length <= maxLength) return text;
+  return text.substring(0, maxLength) + "...";
+};
+
 /** Dashboard deadlines omit completed documents entirely. */
 const DASHBOARD_DOCUMENT_STATUS_OPTIONS = DOCUMENT_STATUS_FILTER_OPTIONS.filter(
   (opt) => opt.value !== DOCUMENT_STATUS_LABELS.complete
 );
 
 const DashboardPage = () => {
+  const { t } = useTranslation();
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [documentStatusFilter, setDocumentStatusFilter] = useState("all");
   const deferredPriorityFilter = useDeferredValue(priorityFilter);
@@ -57,8 +65,8 @@ const DashboardPage = () => {
   // Filter tasks by priority for upcoming deadlines
   const filteredTasks = useMemo(() => {
     if (!tasks) return [];
-    if (deferredPriorityFilter === "all") return tasks.filter(t => t.status === "pending");
-    return tasks.filter(t => t.status === "pending" && t.priority === deferredPriorityFilter);
+    if (deferredPriorityFilter === "all") return tasks.filter(t => t.status === "pending" || t.status === "overdue");
+    return tasks.filter(t => (t.status === "pending" || t.status === "overdue") && t.priority === deferredPriorityFilter);
   }, [tasks, deferredPriorityFilter]);
 
   const filteredDocuments = useMemo(() => {
@@ -113,22 +121,22 @@ const DashboardPage = () => {
 
   const statsData = [
     { 
-      label: "Total Tasks", 
+      label: t('dashboard.totalTasks'), 
       value: (taskStats?.total || 0) + (documentSummary?.stats.total || 0), 
       colorClass: "text-foreground" 
     },
     { 
-      label: "Pending/Active", 
+      label: t('dashboard.pendingActive'), 
       value: (taskStats?.pending || 0) + (documentSummary?.stats.active || 0), 
       colorClass: "text-warning" 
     },
     { 
-      label: "Completed", 
+      label: t('common.completed'), 
       value: (taskStats?.completed || 0) + (documentSummary?.stats.complete || 0), 
       colorClass: "text-success" 
     },
     { 
-      label: "Overdue/Expiring/Expired", 
+      label: t('dashboard.overdueExpiringExpired'), 
       value: (taskStats?.overdue || 0) + (documentSummary?.stats.expiring || 0) + (documentSummary?.stats.expired || 0), 
       colorClass: "text-destructive" 
     },
@@ -150,8 +158,8 @@ const DashboardPage = () => {
       <AppLayout>
         <div className="max-w-5xl mx-auto animate-fade-in">
           <div className="text-center py-12">
-            <h2 className="text-lg font-semibold text-destructive mb-2">Error loading tasks</h2>
-            <p className="text-muted-foreground">Please try refreshing the page</p>
+            <h2 className="text-lg font-semibold text-destructive mb-2">{t('dashboard.errorLoadingTasks')}</h2>
+            <p className="text-muted-foreground">{t('dashboard.pleaseTryRefreshingPage')}</p>
           </div>
         </div>
       </AppLayout>
@@ -164,29 +172,29 @@ const DashboardPage = () => {
         <div className="max-w-5xl mx-auto animate-fade-in">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between mb-6">
           <div>
-            <h1 className="font-heading text-2xl font-semibold text-foreground">Dashboard</h1>
-            <p className="text-sm text-muted-foreground mt-1">Overview of your compliance status.</p>
+            <h1 className="font-heading text-2xl font-semibold text-foreground">{t('dashboard.title')}</h1>
+            <p className="text-sm text-muted-foreground mt-1">{t('dashboard.subtitle')}</p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-3 w-full sm:w-auto">
             <div className="space-y-1 w-full sm:w-44">
-              <span className="text-xs text-muted-foreground">Compliance tasks</span>
+              <span className="text-xs text-muted-foreground">{t('dashboard.complianceTasks')}</span>
               <Select value={priorityFilter} onValueChange={setPriorityFilter}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Priority" />
+                  <SelectValue placeholder={t('common.priority')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All priorities</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="all">{t('dashboard.allPriorities')}</SelectItem>
+                  <SelectItem value="high">{t('common.high')}</SelectItem>
+                  <SelectItem value="medium">{t('common.medium')}</SelectItem>
+                  <SelectItem value="low">{t('common.low')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1 w-full sm:w-44">
-              <span className="text-xs text-muted-foreground">Documents</span>
+              <span className="text-xs text-muted-foreground">{t('dashboard.documents')}</span>
               <Select value={documentStatusFilter} onValueChange={setDocumentStatusFilter}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Status" />
+                  <SelectValue placeholder={t('common.status')} />
                 </SelectTrigger>
                 <SelectContent>
                   {DASHBOARD_DOCUMENT_STATUS_OPTIONS.map((opt) => (
@@ -212,7 +220,7 @@ const DashboardPage = () => {
         {(taskAlerts && taskAlerts.length > 0) || (documentAlerts && documentAlerts.length > 0) && (
           <div className="mb-6">
             <p className="text-sm text-muted-foreground">
-              You have {(taskAlerts?.length || 0) + (documentAlerts?.length || 0)} notification{((taskAlerts?.length || 0) + (documentAlerts?.length || 0)) > 1 ? 's' : ''}. Check bell icon in the header.
+              {t('dashboard.youHaveNotifications', { count: (taskAlerts?.length || 0) + (documentAlerts?.length || 0), plural: ((taskAlerts?.length || 0) + (documentAlerts?.length || 0)) > 1 ? 's' : '' })}
             </p>
           </div>
         )}
@@ -222,93 +230,88 @@ const DashboardPage = () => {
           <div className="px-4 py-3 border-b border-border flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-muted-foreground" />
-              <h2 className="text-sm font-medium text-foreground">Upcoming Deadlines</h2>
+              <h2 className="text-sm font-medium text-foreground">{t('dashboard.upcomingDeadlines')}</h2>
             </div>
-            <span className="text-xs text-muted-foreground">Soonest first</span>
+            <span className="text-xs text-muted-foreground">{t('dashboard.soonestFirst')}</span>
           </div>
-          <div className="divide-y divide-border">
-            {paginatedDeadlines.length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                No tasks or documents match your filters.
-              </div>
-            ) : (
-              paginatedDeadlines.map((row) =>
-                row.kind === "task" ? (
-                  <div
-                    key={`task-${row.task.id}`}
-                    className="px-4 py-3 flex items-center justify-between text-sm hover:bg-accent/50 transition-colors"
-                  >
-                    <span className="text-foreground">{row.task.type}</span>
-                    <div className="flex items-center gap-4">
-                      <span className="text-muted-foreground hidden md:block">{row.task.due_date}</span>
-                      {row.task.notes && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="flex items-center gap-1 text-muted-foreground cursor-help">
-                              <FileText className="h-3 w-3" />
-                              <span className="text-xs hidden sm:inline">Notes</span>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs">
-                            <p className="text-sm">{row.task.notes}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full ${
-                          row.task.priority === "high"
-                            ? "bg-destructive/10 text-destructive"
-                            : row.task.priority === "medium"
-                              ? "bg-warning/10 text-warning"
-                              : "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        {row.task.priority.charAt(0).toUpperCase() + row.task.priority.slice(1)}
-                      </span>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openCompleteConfirmation(row.task)}
-                        className="text-xs"
-                      >
-                        Complete
-                      </Button>
-                    </div>
-                  </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-secondary/30">
+                  <th className="text-left px-4 py-3 text-muted-foreground font-medium w-[25%]">{t('dashboard.type')}</th>
+                  <th className="text-left px-4 py-3 text-muted-foreground font-medium w-[25%]">{t('dashboard.dueDate')}</th>
+                  <th className="text-left px-4 py-3 text-muted-foreground font-medium w-[25%]">{t('common.status')}</th>
+                  <th className="text-right px-4 py-3 text-muted-foreground font-medium w-[25%]">{t('dashboard.actions')}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {paginatedDeadlines.length === 0 ? (
+                  <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-muted-foreground">{t('dashboard.noTasksOrDocumentsMatch')}</td></tr>
                 ) : (
-                  <div
-                    key={`doc-${row.doc.id}`}
-                    className="px-4 py-3 flex items-center justify-between text-sm hover:bg-accent/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <FileCheck className="h-3 w-3 text-muted-foreground" />
-                      <span className="text-foreground">{row.doc.name}</span>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <span className="text-muted-foreground hidden md:block">
-                        {row.doc.expiry_date || "No expiry"}
-                      </span>
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full ${documentStatusBadgeClass(row.doc.status)}`}
-                      >
-                        {documentStatusLabel(row.doc.status)}
-                      </span>
-                      {row.doc.status !== "complete" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openDocumentCompleteConfirmation(row.doc)}
-                          className="text-xs"
-                          disabled={markDocumentComplete.isPending}
-                        >
-                          Complete
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                )
-              )
-            )}
+                  paginatedDeadlines.map((row) =>
+                    row.kind === "task" ? (
+                      <tr key={`task-${row.task.id}`} className="hover:bg-accent/50 transition-colors">
+                        <td className="px-4 py-3 text-foreground w-[25%]">{row.task.type}</td>
+                        <td className="px-4 py-3 text-muted-foreground w-[25%]">{row.task.due_date}</td>
+                        <td className="px-4 py-3 w-[25%]">
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${
+                            row.task.status === "completed" ? "bg-success/10 text-success" :
+                            row.task.status === "overdue" ? "bg-destructive/10 text-destructive" :
+                            "bg-warning/10 text-warning"
+                          }`}>{row.task.status.charAt(0).toUpperCase() + row.task.status.slice(1)}</span>
+                        </td>
+                        <td className="px-4 py-3 text-right w-[25%]">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => openCompleteConfirmation(row.task)}
+                              disabled={row.task.status === "completed"}
+                              className={`text-xs ${
+                                row.task.status === "completed" 
+                                  ? "text-muted-foreground/50 cursor-not-allowed" 
+                                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                              }`}
+                            >
+                              {t('dashboard.complete')}
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      <tr key={`doc-${row.doc.id}`} className="hover:bg-accent/50 transition-colors">
+                        <td className="px-4 py-3 text-foreground w-[25%]">
+                          <div className="flex items-center gap-2">
+                            <FileCheck className="h-3 w-3 text-muted-foreground" />
+                            <span>{row.doc.name}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground w-[25%]">{row.doc.expiry_date || t('dashboard.noExpiry')}</td>
+                        <td className="px-4 py-3 w-[25%]">
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${documentStatusBadgeClass(row.doc.status)}`}>
+                            {documentStatusLabel(row.doc.status)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right w-[25%]">
+                          <div className="flex items-center justify-end gap-1">
+                            {row.doc.status !== "complete" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openDocumentCompleteConfirmation(row.doc)}
+                                className="text-xs text-muted-foreground hover:text-foreground hover:bg-accent"
+                              >
+                                {t('dashboard.complete')}
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  )
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -330,19 +333,19 @@ const DashboardPage = () => {
         <Dialog open={completeOpen} onOpenChange={(o) => { setCompleteOpen(o); if (!o) setCompletingTask(null); }}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Confirm Completion</DialogTitle>
+              <DialogTitle>{t('dashboard.confirmCompletion')}</DialogTitle>
             </DialogHeader>
             <div className="py-4">
               <p className="text-sm text-muted-foreground">
-                Are you sure you want to mark the task "<span className="font-medium text-foreground">{completingTask?.type}</span>" as completed?
+                {t('dashboard.areYouSureMarkTaskComplete')} "{completingTask?.type}" {t('dashboard.asCompleted')}
               </p>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setCompleteOpen(false)}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button onClick={handleComplete}>
-                Mark as Complete
+                {t('dashboard.markAsComplete')}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -357,20 +360,19 @@ const DashboardPage = () => {
         >
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Confirm Completion</DialogTitle>
+              <DialogTitle>{t('dashboard.confirmCompletion')}</DialogTitle>
             </DialogHeader>
             <div className="py-4">
               <p className="text-sm text-muted-foreground">
-                Are you sure you want to mark the document "
-                <span className="font-medium text-foreground">{completingDoc?.name}</span>" as completed?
+                {t('dashboard.areYouSureMarkDocumentComplete')} "{completingDoc?.name}" {t('dashboard.asCompleted')}
               </p>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setDocumentCompleteOpen(false)}>
-                Cancel
+                {t('dashboard.cancel')}
               </Button>
               <Button onClick={handleDocumentComplete} disabled={markDocumentComplete.isPending}>
-                Mark as Complete
+                {t('dashboard.markAsComplete')}
               </Button>
             </DialogFooter>
           </DialogContent>

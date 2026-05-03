@@ -3,34 +3,38 @@ import { Link, useLocation } from "react-router-dom";
 import { LayoutDashboard, Shield, Users, FileText, Settings, UserPlus, Menu, Sun, Moon, LogOut, Inbox } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import NotificationCenter from "@/components/NotificationCenter";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuthContext } from "@/modules/auth/components/AuthContext";
 import { useCompanyName, useCurrentUserRole, useProCompanies } from "@/hooks/useCompanyQuery";
 import { useProAssociationRequests } from "@/modules/user-management/hooks/useUserManagementQuery";
 import { useOrganizationRouting } from "@/hooks/useOrganizationRouting";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
-const navItems = [
-  { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
-  { label: "Compliance", icon: Shield, path: "/compliance" },
-  { label: "Employees", icon: Users, path: "/employees" },
-  { label: "Documents", icon: FileText, path: "/documents" },
-  {
-    label: "User Management",
-    icon: UserPlus,
-    path: "/user-management",
-    hideForEmployee: true,
-  },
-  {
-    label: "Association Requests",
-    icon: Inbox,
-    path: "/association-requests",
-    onlyForPro: true,
-  },
-  { label: "Settings", icon: Settings, path: "/settings" },
-] as const;
+import { useLocalizeDocumentAttributes } from "@/i18n/useLocalizeDocumentAttributes";
+import { useTranslation } from "react-i18next";
 
 const AppLayout = ({ children }: { children: ReactNode }) => {
+  const { t } = useTranslation();
+
+  const navItems = [
+    { label: t('navigation.dashboard'), icon: LayoutDashboard, path: "/dashboard" },
+    { label: t('navigation.compliance'), icon: Shield, path: "/compliance" },
+    { label: t('navigation.employees'), icon: Users, path: "/employees" },
+    { label: t('navigation.documents'), icon: FileText, path: "/documents" },
+    {
+      label: t('navigation.userManagement'),
+      icon: UserPlus,
+      path: "/user-management",
+      hideForEmployee: true,
+    },
+    {
+      label: t('navigation.associationRequests'),
+      icon: Inbox,
+      path: "/association-requests",
+      onlyForPro: true,
+    },
+    { label: t('navigation.settings'), icon: Settings, path: "/settings" },
+  ] as const;
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { isDark, toggle: toggleTheme } = useTheme();
@@ -47,6 +51,9 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
     getDefaultOrg 
   } = useOrganizationRouting();
 
+  // Initialize RTL support for internationalization
+  useLocalizeDocumentAttributes();
+
   // Calculate pending association requests for red dot indicator
   const pendingAssociationRequests = associationRequests.filter((request) => request.status === "pending").length;
 
@@ -54,9 +61,6 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
   const availableCompanies = orgProCompanies || proCompanies || [];
   const selectedCompanyId = currentOrgId || '';
 
-  console.log('🎛️ [AppLayout] Current organization ID:', currentOrgId);
-  console.log('🎛️ [AppLayout] Is organization route:', isOrgRoute);
-  console.log('🎛️ [AppLayout] Available companies:', availableCompanies);
 
   const visibleNavItems = navItems.filter((item) => {
     if ("onlyForPro" in item && item.onlyForPro) {
@@ -146,7 +150,7 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
                     disabled={!availableCompanies || availableCompanies.length === 0}
                   >
                     <SelectTrigger className="text-sm text-muted-foreground w-48">
-                      <SelectValue placeholder={availableCompanies && availableCompanies.length > 0 ? "Select Company" : "No Companies Linked"} />
+                      <SelectValue placeholder={availableCompanies && availableCompanies.length > 0 ? t('navigation.selectCompany') : t('navigation.noCompaniesLinked')} />
                     </SelectTrigger>
                     <SelectContent>
                       {availableCompanies && availableCompanies.length > 0 ? (
@@ -157,7 +161,7 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
                         ))
                       ) : (
                         <SelectItem value="no-company" disabled>
-                          No companies linked
+                          {t('navigation.noCompaniesLinked')}
                         </SelectItem>
                       )}
                     </SelectContent>
@@ -167,11 +171,12 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
             ) : (
               // Business owner: Show single company name
               <span className="text-sm text-muted-foreground hidden md:block">
-                {isCompanyLoading ? "Loading..." : companyName || "No Company"}
+                {isCompanyLoading ? t('navigation.loading') : companyName || t('common.company')}
               </span>
             )}
           </div>
           <div className="flex items-center gap-2">
+            <LanguageSwitcher />
             <NotificationCenter />
             <button
               onClick={toggleTheme}

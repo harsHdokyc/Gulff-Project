@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuthContext } from "@/modules/auth/components/AuthContext";
+import { useTranslation } from "react-i18next";
 import {
   type User,
 } from "@/modules/user-management/services/userManagementService";
@@ -72,25 +73,28 @@ const validateName = (name: string): boolean => {
   return name.trim().length >= 2 && name.trim().length <= 100;
 };
 
-const validateProAssociationForm = (
-  proEmail: string
-): { isValid: boolean; errors: Record<string, string> } => {
-  const errors: Record<string, string> = {};
-
-  if (!proEmail.trim()) {
-    errors.proEmail = 'PRO email is required';
-  } else if (!validateEmail(proEmail)) {
-    errors.proEmail = 'Please enter a valid email address';
-  }
-
-  return {
-    isValid: Object.keys(errors).length === 0,
-    errors
-  };
-};
-
 // Main component
 const UserManagementPage = () => {
+  const { t } = useTranslation();
+
+  // Validation functions that need access to translation
+  const validateProAssociationForm = (
+    proEmail: string
+  ): { isValid: boolean; errors: Record<string, string> } => {
+    const errors: Record<string, string> = {};
+
+    if (!proEmail.trim()) {
+      errors.proEmail = t('userManagement.proEmailIsRequired');
+    } else if (!validateEmail(proEmail)) {
+      errors.proEmail = t('userManagement.pleaseEnterValidEmail');
+    }
+
+    return {
+      isValid: Object.keys(errors).length === 0,
+      errors
+    };
+  };
+
   const { user } = useAuthContext();
   const authUserId = user?.id;
 
@@ -197,15 +201,15 @@ const UserManagementPage = () => {
     // Check if user already has a PRO
     if (hasExistingPro) {
       toast({
-        title: 'PRO Limit Reached',
-        description: 'You already have a PRO assigned. You cannot add more than one PRO.',
+        title: t('userManagement.proLimitReached'),
+        description: t('userManagement.youAlreadyHaveProAssigned'),
         variant: 'destructive',
       });
       return;
     }
     
     if (!selectedPro) {
-      setFormErrors({ proEmail: 'Please select a PRO from the search results' });
+      setFormErrors({ proEmail: t('userManagement.pleaseSelectProFromSearchResults') });
       return;
     }
 
@@ -273,7 +277,7 @@ const UserManagementPage = () => {
   // Delete user
   const handleDeleteUser = (userRow: User) => {
     const displayName = getDisplayName(userRow, user);
-    if (!window.confirm(`Are you sure you want to delete ${displayName}? This action cannot be undone.`)) {
+    if (!window.confirm(t('userManagement.areYouSureDeleteUser', { name: displayName }))) {
       return;
     }
 
@@ -293,9 +297,9 @@ const UserManagementPage = () => {
 
 
   const roleFilters: { label: string; value: "all" | "owner" | "pro" }[] = [
-    { label: "All Roles", value: "all" as const },
-    { label: "Owner", value: "owner" as const },
-    { label: "Pro", value: "pro" as const },
+    { label: t('userManagement.allRoles'), value: "all" as const },
+    { label: t('common.owner'), value: "owner" as const },
+    { label: t('common.pro'), value: "pro" as const },
   ];
 
   // Security check - don't render if not logged in
@@ -307,9 +311,9 @@ const UserManagementPage = () => {
             <CardContent className="pt-6">
               <div className="text-center py-8">
                 <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h2 className="text-lg font-semibold mb-2">Authentication Required</h2>
+                <h2 className="text-lg font-semibold mb-2">{t('userManagement.authenticationRequired')}</h2>
                 <p className="text-muted-foreground">
-                  Please sign in to access user management.
+                  {t('userManagement.pleaseSignInToAccessUserManagement')}
                 </p>
               </div>
             </CardContent>
@@ -325,8 +329,8 @@ const UserManagementPage = () => {
   const buttonState = {
     disabled: !!loadErrorMessage || mutating || hasExistingPro,
     tooltip: hasExistingPro 
-      ? 'You already have a PRO assigned. You cannot add a new one.'
-      : (loadErrorMessage || mutating ? 'System busy or loading data' : 'Request association with a PRO consultant')
+      ? t('userManagement.youAlreadyHaveProAssigned')
+      : (loadErrorMessage || mutating ? t('userManagement.systemBusyOrLoadingData') : t('userManagement.requestAssociationWithPro'))
   };
 
   return (
@@ -335,9 +339,9 @@ const UserManagementPage = () => {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">PRO Management ({loadErrorMessage ? '—' : total})</h1>
+            <h1 className="text-2xl font-bold">{t('userManagement.proManagement')} ({loadErrorMessage ? '—' : total})</h1>
             <p className="text-muted-foreground">
-              Manage PRO associations and requests for your business
+              {t('userManagement.manageProAssociations')}
             </p>
           </div>
           
@@ -346,8 +350,8 @@ const UserManagementPage = () => {
             onOpenChange={(open) => {
               if (open && hasExistingPro) {
                 toast({
-                  title: 'PRO Limit Reached',
-                  description: 'You already have a PRO assigned. You cannot add more than one PRO.',
+                  title: t('userManagement.proLimitReached'),
+                  description: t('userManagement.youAlreadyHaveProAssigned'),
                   variant: 'destructive',
                 });
                 return;
@@ -367,7 +371,7 @@ const UserManagementPage = () => {
                       onClick={() => setIsCreateDialogOpen(true)}
                     >
                       <UserPlus className="h-4 w-4 mr-2" />
-                      Request PRO Association
+                      {t('userManagement.requestProAssociation')}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
@@ -385,9 +389,9 @@ const UserManagementPage = () => {
                       <UserPlus className="h-5 w-5 text-primary" />
                     </div>
                     <div>
-                      <DialogTitle className="text-xl font-semibold">Request PRO Association</DialogTitle>
+                      <DialogTitle className="text-xl font-semibold">{t('userManagement.requestProAssociation')}</DialogTitle>
                       <p className="text-sm text-muted-foreground mt-1">
-                        Find and request association with an existing PRO consultant
+                        {t('userManagement.findAndRequestAssociation')}
                       </p>
                     </div>
                   </div>
@@ -397,13 +401,13 @@ const UserManagementPage = () => {
                   {/* PRO Search */}
                   <div className="space-y-2">
                     <Label htmlFor="proSearch" className="text-sm font-medium flex items-center gap-1">
-                      Search for PRO <span className="text-destructive">*</span>
+                      {t('userManagement.searchForPro')} <span className="text-destructive">*</span>
                     </Label>
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
                         id="proSearch"
-                        placeholder="Search by name or email..."
+                        placeholder={t('userManagement.searchByNameOrEmail')}
                         value={searchQuery}
                         onChange={(e) => {
                           setSearchQuery(e.target.value);
@@ -426,7 +430,7 @@ const UserManagementPage = () => {
                       <div className="border rounded-md bg-background shadow-sm max-h-48 overflow-y-auto">
                         {proSearchResults?.length === 0 ? (
                           <div className="p-3 text-sm text-muted-foreground text-center">
-                            No PROs found matching "{searchQuery}"
+                            {t('userManagement.noProsFoundMatching')} "{searchQuery}"
                           </div>
                         ) : (
                           proSearchResults?.map((pro) => (
@@ -455,7 +459,7 @@ const UserManagementPage = () => {
                   {/* Selected PRO Display */}
                   {selectedPro && (
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium">Selected PRO</Label>
+                      <Label className="text-sm font-medium">{t('userManagement.selectedPro')}</Label>
                       <div className="p-3 bg-muted/50 rounded-md border">
                         <div className="font-medium text-sm">{selectedPro.full_name || 'No name'}</div>
                         <div className="text-xs text-muted-foreground">{selectedPro.email}</div>
@@ -472,7 +476,7 @@ const UserManagementPage = () => {
                         onClick={() => setIsCreateDialogOpen(false)}
                         className="transition-all duration-200 hover:bg-accent/50"
                       >
-                        Cancel
+                        {t('common.cancel')}
                       </Button>
                       <Button 
                         type="submit" 
@@ -482,12 +486,12 @@ const UserManagementPage = () => {
                         {createProAssociation.isPending ? (
                           <>
                             <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
-                            Sending...
+                            {t('userManagement.sending')}
                           </>
                         ) : (
                           <>
                             <UserPlus className="h-4 w-4 mr-2" />
-                            Send Request
+                            {t('userManagement.sendRequest')}
                           </>
                         )}
                       </Button>
@@ -504,7 +508,7 @@ const UserManagementPage = () => {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input 
-              placeholder="Search PROs..." 
+              placeholder={t('userManagement.searchPros')} 
               value={searchTerm} 
               onChange={(e) => setSearchTerm(e.target.value)} 
               className="pl-9" 
@@ -513,7 +517,7 @@ const UserManagementPage = () => {
           </div>
           <Select value={roleFilter} onValueChange={handleRoleFilterChange}>
             <SelectTrigger className="w-full sm:w-36">
-              <SelectValue placeholder="Role" />
+              <SelectValue placeholder={t('common.role')} />
             </SelectTrigger>
             <SelectContent>
               {roleFilters.map((f) => (
@@ -527,17 +531,17 @@ const UserManagementPage = () => {
         <div className="rounded-lg border border-border bg-card overflow-hidden">
           {isFetching && !isLoading && (
             <div className="px-4 py-2 border-b border-border bg-secondary/30 flex items-center justify-end">
-              <span className="text-xs font-normal text-muted-foreground">Updating...</span>
+              <span className="text-xs font-normal text-muted-foreground">{t('userManagement.updating')}</span>
             </div>
           )}
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-secondary/30">
-                  <th className="text-left px-4 py-3 text-muted-foreground font-medium w-[30%]">Name</th>
-                  <th className="text-left px-4 py-3 text-muted-foreground font-medium w-[35%]">Email</th>
-                  <th className="text-left px-4 py-3 text-muted-foreground font-medium w-[20%]">Role</th>
-                  <th className="text-right px-4 py-3 text-muted-foreground font-medium w-[15%]">Actions</th>
+                  <th className="text-left px-4 py-3 text-muted-foreground font-medium w-[30%]">{t('common.name')}</th>
+                  <th className="text-left px-4 py-3 text-muted-foreground font-medium w-[35%]">{t('common.email')}</th>
+                  <th className="text-left px-4 py-3 text-muted-foreground font-medium w-[20%]">{t('userManagement.role')}</th>
+                  <th className="text-right px-4 py-3 text-muted-foreground font-medium w-[15%]">{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -546,7 +550,7 @@ const UserManagementPage = () => {
                     <td colSpan={4} className="px-4 py-8">
                       <div className="text-center">
                         <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-4 text-sm inline-block">
-                          <p className="font-medium text-destructive">Could not load users</p>
+                          <p className="font-medium text-destructive">{t('userManagement.couldNotLoadUsers')}</p>
                           <p className="mt-1 text-muted-foreground">{loadErrorMessage}</p>
                           <Button
                             variant="outline"
@@ -554,7 +558,7 @@ const UserManagementPage = () => {
                             className="mt-3"
                             onClick={() => refetch()}
                           >
-                            Retry
+                            {t('common.retry')}
                           </Button>
                         </div>
                       </div>
@@ -563,16 +567,16 @@ const UserManagementPage = () => {
                 ) : isLoading ? (
                   <tr>
                     <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">
-                      Loading users...
+                      {t('userManagement.loadingUsers')}
                     </td>
                   </tr>
                 ) : users.length === 0 ? (
                   <tr>
                     <td colSpan={4} className="px-4 py-8 text-center">
                       <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <h3 className="text-lg font-semibold mb-2">No PROs found</h3>
+                      <h3 className="text-lg font-semibold mb-2">{t('userManagement.noProsFound')}</h3>
                       <p className="text-muted-foreground">
-                        {searchTerm ? 'Try adjusting your search terms.' : 'Create your first PRO to get started.'}
+                        {searchTerm ? t('userManagement.tryAdjustingSearchTerms') : t('userManagement.createYourFirstProToGetStarted')}
                       </p>
                     </td>
                   </tr>
@@ -611,7 +615,7 @@ const UserManagementPage = () => {
                                 </button>
                               </TooltipTrigger>
                               <TooltipContent>
-                                <p>Edit user</p>
+                                <p>{t('userManagement.editUser')}</p>
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
@@ -632,7 +636,7 @@ const UserManagementPage = () => {
                                 </button>
                               </TooltipTrigger>
                               <TooltipContent>
-                                <p>Delete user</p>
+                                <p>{t('userManagement.deleteUser')}</p>
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
@@ -663,14 +667,14 @@ const UserManagementPage = () => {
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Edit User</DialogTitle>
+              <DialogTitle>{t('userManagement.editUser')}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleUpdateUser} className="space-y-4">
               <div>
-                <Label htmlFor="editFullName">Full Name</Label>
+                <Label htmlFor="editFullName">{t('userManagement.fullName')}</Label>
                 <Input
                   id="editFullName"
-                  placeholder="Enter full name"
+                  placeholder={t('userManagement.enterFullName')}
                   value={editForm.full_name}
                   onChange={(e) => setEditForm({...editForm, full_name: e.target.value})}
                   required
@@ -684,10 +688,10 @@ const UserManagementPage = () => {
                   onClick={() => setIsEditDialogOpen(false)}
                   disabled={updateUser.isPending}
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button type="submit" disabled={updateUser.isPending}>
-                  {updateUser.isPending ? 'Updating...' : 'Update User'}
+                  {updateUser.isPending ? t('userManagement.updatingUser') : t('userManagement.updateUser')}
                 </Button>
               </div>
             </form>

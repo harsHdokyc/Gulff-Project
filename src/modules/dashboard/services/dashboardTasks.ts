@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { supabase } from '@/lib/supabase'
+import { NotificationTriggers } from '@/modules/notifications/utils/notificationTriggers'
 
 export interface Task {
   id: string
@@ -61,41 +62,19 @@ class TaskService {
       const status = params?.status;
       const search = params?.search?.trim();
 
+      // Set organization context for PRO users if organizationId is provided and valid
+      if (params?.organizationId && params.organizationId.trim() !== '') {
+        await supabase.rpc('set_organization_context_text', { org_id: params.organizationId });
+      }
+
       let query = supabase
         .from('compliance_tasks')
         .select('*', { count: 'exact' });
 
-      // Filter by organization if provided
+      // Filter by organization if provided (this is now handled by RLS policy)
+      // but we keep it for non-PRO users and as a fallback
       if (params?.organizationId) {
-        console.log('📋 [TaskService.getTasks] Filtering by organizationId:', params.organizationId);
         query = query.eq('company_id', params.organizationId);
-        
-        // Debug: Check if there are any tasks for this organization at all
-        const { data: allOrgTasks, error: debugError } = await supabase
-          .from('compliance_tasks')
-          .select('id, type, status, company_id')
-          .eq('company_id', params.organizationId);
-        
-        console.log('🔍 [TaskService.getTasks] DEBUG - All tasks for organization:', {
-          organizationId: params.organizationId,
-          allTasks: allOrgTasks,
-          error: debugError,
-          count: allOrgTasks?.length
-        });
-
-        // Debug: Check what tasks this user can access at all (RLS test)
-        const { data: allAccessibleTasks, error: rlsError } = await supabase
-          .from('compliance_tasks')
-          .select('id, type, status, company_id')
-          .limit(5);
-        
-        console.log('🔐 [TaskService.getTasks] DEBUG - All accessible tasks (RLS test):', {
-          allTasks: allAccessibleTasks,
-          error: rlsError,
-          count: allAccessibleTasks?.length
-        });
-      } else {
-        console.log('📋 [TaskService.getTasks] No organizationId filter - fetching all tasks');
       }
 
       // Apply filters
@@ -116,16 +95,19 @@ class TaskService {
         .order('due_date', { ascending: true }) // Then by due date
         .range(pageIndex * pageSize, (pageIndex + 1) * pageSize - 1);
 
-      console.log('📋 [TaskService.getTasks] SQL result:', {
-        data: data,
-        error: error,
-        count: count,
-        dataLength: data?.length
-      });
 
       if (error) {
         console.error('Error fetching tasks:', error)
         throw error
+      }
+
+      // Check for notification triggers
+      if (data && data.length > 0) {
+        // Get company_id from first task for notification context
+        const companyId = data[0]?.company_id;
+        if (companyId) {
+          NotificationTriggers.checkComplianceTasks(data, companyId).catch(console.error);
+        }
       }
 
       return {
@@ -135,12 +117,28 @@ class TaskService {
     } catch (error) {
       console.error('Error fetching tasks:', error);
       throw error;
+    } finally {
+      // Always clear organization context to prevent bleeding between queries
+      if (params?.organizationId && params.organizationId.trim() !== '') {
+        try {
+          await supabase.rpc('clear_organization_context');
+        } catch (clearError) {
+          console.warn('Failed to clear organization context:', clearError);
+        }
+      }
     }
   }
 
   async createTask(taskData: CreateTaskData, companyId?: string): Promise<Task> {
+    let userCompanyId: string | undefined = undefined;
+    
     try {
-      let userCompanyId = companyId;
+      userCompanyId = companyId;
+
+      // Set organization context if companyId is provided and valid
+      if (userCompanyId && userCompanyId.trim() !== '') {
+        await supabase.rpc('set_organization_context_text', { org_id: userCompanyId });
+      }
 
       // Fetch company_id if not provided
       if (!userCompanyId) {
@@ -173,6 +171,15 @@ class TaskService {
     } catch (error) {
       console.error('Error creating task:', error)
       throw error
+    } finally {
+      // Always clear organization context
+      if (userCompanyId && userCompanyId.trim() !== '') {
+        try {
+          await supabase.rpc('clear_organization_context');
+        } catch (clearError) {
+          console.warn('Failed to clear organization context:', clearError);
+        }
+      }
     }
   }
 
@@ -218,13 +225,13 @@ class TaskService {
 
   getTaskAlerts(tasks: Task[]): TaskAlert[] {
     const now = new Date()
-    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+    const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
 
     return tasks
       .filter(task => {
         const dueDate = new Date(task.due_date)
         return task.status === 'overdue' || 
-               (task.status === 'pending' && dueDate <= sevenDaysFromNow)
+               (task.status === 'pending' && dueDate <= thirtyDaysFromNow)
       })
       .map(task => ({
         id: task.id,

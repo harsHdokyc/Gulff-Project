@@ -1,18 +1,28 @@
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { documentService } from '@/modules/documents/services/documentService'
 import type { Document } from '@/modules/documents/services/documentService'
+import { useCurrentOrganization } from '@/hooks/useCurrentOrganization'
 
 export const documentSummaryKeys = {
   all: ['documentSummary'] as const,
-  stats: ['documentSummary', 'stats'] as const,
-  alerts: ['documentSummary', 'alerts'] as const,
+  stats: (organizationId?: string) => [...documentSummaryKeys.all, 'stats', { organizationId }] as const,
+  alerts: (organizationId?: string) => [...documentSummaryKeys.all, 'alerts', { organizationId }] as const,
+  summary: (organizationId?: string) => [...documentSummaryKeys.all, 'summary', { organizationId }] as const,
 }
 
 export function useDocumentSummary() {
+  const { organizationId } = useCurrentOrganization()
+  
   return useQuery({
-    queryKey: documentSummaryKeys.all,
-    queryFn: () => documentService.getDocuments(),
-    select: (documents) => {
+    queryKey: documentSummaryKeys.summary(organizationId),
+    queryFn: () => documentService.getDocumentsPage({
+      page: 0,
+      pageSize: 100, // Get more documents for summary
+      organizationId: organizationId || undefined,
+    }),
+    select: (result) => {
+      const documents = result.documents || []
+      
       // Calculate document stats
       const stats = {
         total: documents.length,
@@ -50,10 +60,17 @@ export function useDocumentSummary() {
 }
 
 export function useDocumentStats() {
+  const { organizationId } = useCurrentOrganization()
+  
   return useQuery({
-    queryKey: documentSummaryKeys.stats,
+    queryKey: documentSummaryKeys.stats(organizationId),
     queryFn: async () => {
-      const documents = await documentService.getDocuments()
+      const result = await documentService.getDocumentsPage({
+        page: 0,
+        pageSize: 100,
+        organizationId: organizationId || undefined,
+      })
+      const documents = result.documents || []
       return {
         total: documents.length,
         active: documents.filter(d => d.status === 'active').length,
@@ -66,10 +83,17 @@ export function useDocumentStats() {
 }
 
 export function useDocumentAlerts() {
+  const { organizationId } = useCurrentOrganization()
+  
   return useQuery({
-    queryKey: documentSummaryKeys.alerts,
+    queryKey: documentSummaryKeys.alerts(organizationId),
     queryFn: async () => {
-      const documents = await documentService.getDocuments()
+      const result = await documentService.getDocumentsPage({
+        page: 0,
+        pageSize: 100,
+        organizationId: organizationId || undefined,
+      })
+      const documents = result.documents || []
       return documents
         .filter(d => d.status === 'expiring-soon' || d.status === 'expired')
         .map(d => ({
@@ -85,12 +109,16 @@ export function useDocumentAlerts() {
 
 export function useUpdateDocument() {
   const queryClient = useQueryClient()
+  const { organizationId } = useCurrentOrganization()
 
   return useMutation({
     mutationFn: ({ id, updates }: { id: string; updates: Partial<Document> }) => 
       documentService.updateDocument(id, updates),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: documentSummaryKeys.all })
+      queryClient.invalidateQueries({ queryKey: documentSummaryKeys.summary(organizationId) })
+      queryClient.invalidateQueries({ queryKey: documentSummaryKeys.stats(organizationId) })
+      queryClient.invalidateQueries({ queryKey: documentSummaryKeys.alerts(organizationId) })
     },
     onError: (error) => {
       console.error('Failed to update document:', error)

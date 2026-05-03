@@ -20,6 +20,7 @@ import { DEFAULT_PAGE_SIZE } from "@/lib/pagination";
 import { SimplePagination } from "@/components/Pagination";
 import { useServerPagination } from "@/hooks/useServerPagination";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useTranslation } from "react-i18next";
 
 const docTypeLabels: Record<string, string> = {
   "trade-license": "Trade License",
@@ -42,14 +43,17 @@ interface DocFormProps {
   setSelectedFile?: React.Dispatch<React.SetStateAction<File | null>>;
 }
 
-const DocForm = ({ form, setForm, onSubmit, label, errors = {}, onFieldChange, selectedFile, setSelectedFile }: DocFormProps) => (
+const DocForm = ({ form, setForm, onSubmit, label, errors = {}, onFieldChange, selectedFile, setSelectedFile }: DocFormProps) => {
+  const { t } = useTranslation();
+  
+  return (
   <div className="space-y-4 mt-2">
     <div className="space-y-2">
       <Label className="flex items-center gap-1">
-        Document Name <span className="text-destructive">*</span>
+        {t('documents.name')} <span className="text-destructive">*</span>
       </Label>
       <Input 
-        placeholder="e.g., Trade License 2025" 
+        placeholder={t('documents.name')} 
         value={form.name} 
         onChange={(e) => {
           const value = validateAlphabeticText(e.target.value);
@@ -63,7 +67,7 @@ const DocForm = ({ form, setForm, onSubmit, label, errors = {}, onFieldChange, s
     </div>
     <div className="space-y-2">
       <Label className="flex items-center gap-1">
-        Document Type <span className="text-destructive">*</span>
+        {t('documents.category')} <span className="text-destructive">*</span>
       </Label>
       <Select 
         value={form.type} 
@@ -73,21 +77,21 @@ const DocForm = ({ form, setForm, onSubmit, label, errors = {}, onFieldChange, s
         }}
       >
         <SelectTrigger className={errors.type ? "border-destructive" : ""}>
-          <SelectValue placeholder="Select type" />
+          <SelectValue placeholder={t('common.select')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="trade-license">Trade License</SelectItem>
-          <SelectItem value="vat-certificate">VAT Certificate</SelectItem>
-          <SelectItem value="insurance">Insurance Policy</SelectItem>
-          <SelectItem value="lease">Lease Agreement</SelectItem>
-          <SelectItem value="other">Other</SelectItem>
+          <SelectItem value="trade-license">{t('documents.tradeLicense')}</SelectItem>
+          <SelectItem value="vat-certificate">{t('documents.vatCertificate')}</SelectItem>
+          <SelectItem value="insurance">{t('documents.insurance')}</SelectItem>
+          <SelectItem value="lease">{t('documents.lease')}</SelectItem>
+          <SelectItem value="other">{t('common.other')}</SelectItem>
         </SelectContent>
       </Select>
       {errors.type && <p className="text-xs text-destructive">{errors.type}</p>}
     </div>
     <div className="space-y-2">
       <Label className="flex items-center gap-1">
-        Expiry Date <span className="text-destructive">*</span>
+        {t('compliance.expiryDate')} <span className="text-destructive">*</span>
       </Label>
       <Input 
         type="date" 
@@ -96,21 +100,21 @@ const DocForm = ({ form, setForm, onSubmit, label, errors = {}, onFieldChange, s
         onChange={(e) => {
           setForm((p) => ({ ...p, expiry: e.target.value }));
           onFieldChange?.('expiry');
-        }}
+        }} 
         className={errors.expiry ? "border-destructive" : ""}
       />
       {errors.expiry && <p className="text-xs text-destructive">{errors.expiry}</p>}
     </div>
-    {label === "Upload Document" && (
+    {label === t('documents.uploadNew') && (
       <div className="space-y-2">
         <Label className="flex items-center gap-1">
-          File <span className="text-destructive">*</span>
+          {t('documents.name')} <span className="text-destructive">*</span>
         </Label>
         <div className={`rounded-md border border-dashed p-6 text-center ${errors.file ? "border-destructive" : "border-border"}`}>
           {selectedFile ? (
             <p className="text-sm text-foreground">{selectedFile.name}</p>
           ) : (
-            <p className="text-sm text-muted-foreground">Drag & drop or click to browse</p>
+            <p className="text-sm text-muted-foreground">{t('documents.dragDropFile')}</p>
           )}
           <input
             type="file"
@@ -123,7 +127,7 @@ const DocForm = ({ form, setForm, onSubmit, label, errors = {}, onFieldChange, s
             accept=".pdf"
           />
           <Button variant="outline" size="sm" className="mt-2" onClick={() => document.getElementById("doc-file-input")?.click()}>
-            Browse
+            {t('common.view')}
           </Button>
         </div>
         {errors.file && <p className="text-xs text-destructive">{errors.file}</p>}
@@ -131,9 +135,11 @@ const DocForm = ({ form, setForm, onSubmit, label, errors = {}, onFieldChange, s
     )}
     <Button className="w-full" onClick={onSubmit}>{label}</Button>
   </div>
-);
+  );
+};
 
 const DocumentsPage = () => {
+  const { t } = useTranslation();
   const permissions = usePermissions();
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
@@ -171,21 +177,21 @@ const DocumentsPage = () => {
     const newErrors: { name?: string; type?: string; expiry?: string; file?: string } = {};
     
     if (!form.name.trim()) {
-      newErrors.name = "Document name is required";
+      newErrors.name = t('validation.required');
     } else if (!isValidAlphabeticInput(form.name)) {
-      newErrors.name = "Document name should contain only letters and spaces";
+      newErrors.name = t('validation.nameInvalid');
     }
     
     if (!form.type) {
-      newErrors.type = "Document type is required";
+      newErrors.type = t('validation.required');
     }
     
     if (!form.expiry) {
-      newErrors.expiry = "Expiry date is required";
+      newErrors.expiry = t('validation.required');
     }
     
     if (isUpload && !selectedFile) {
-      newErrors.file = "File is required";
+      newErrors.file = t('validation.required');
     }
     
     setErrors(newErrors);
@@ -194,7 +200,7 @@ const DocumentsPage = () => {
 
   const handleAdd = () => {
     if (!validateForm(true)) {
-      toast({ title: "Validation Error", description: "Please fill in all required fields.", variant: "destructive" });
+      toast({ title: t('errors.validationError'), description: t('errors.general'), variant: "destructive" });
       return;
     }
     
@@ -234,7 +240,7 @@ const DocumentsPage = () => {
 
   const handleEdit = () => {
     if (!editingId || !validateForm(false)) {
-      toast({ title: "Validation Error", description: "Please fill in all required fields.", variant: "destructive" });
+      toast({ title: t('errors.validationError'), description: t('errors.general'), variant: "destructive" });
       return;
     }
     
@@ -278,15 +284,15 @@ const DocumentsPage = () => {
         setPreviewOpen(true);
       } catch (error) {
         toast({
-          title: "Preview failed",
-          description: "Could not load document preview.",
+          title: t('errors.general'),
+          description: t('errors.loadError'),
           variant: "destructive"
         });
       }
     } else {
       toast({
-        title: "No file available",
-        description: "This document doesn't have an associated file.",
+        title: t('errors.notFound'),
+        description: t('errors.general'),
         variant: "destructive"
       });
     }
@@ -309,18 +315,18 @@ const DocumentsPage = () => {
     <AppLayout>
       <div className="max-w-5xl mx-auto animate-fade-in">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="font-heading text-2xl font-semibold text-foreground">Documents ({total})</h1>
+          <h1 className="font-heading text-2xl font-semibold text-foreground">{t('documents.title')} ({total})</h1>
           {permissions.canCreateDocuments && (
             <Dialog open={addOpen} onOpenChange={(o) => { setAddOpen(o); if (!o) { setForm(emptyForm); setSelectedFile(null); } }}>
               <DialogTrigger asChild>
-                <Button size="sm" disabled={isOperating}><CheckCircle className="h-4 w-4 mr-1" /> Upload Document</Button>
+                <Button size="sm" disabled={isOperating}><CheckCircle className="h-4 w-4 mr-1" /> {t('documents.uploadNew')}</Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Upload Document</DialogTitle>
+                  <DialogTitle>{t('documents.uploadNew')}</DialogTitle>
                   {isUploading && (
                     <div className="text-sm text-muted-foreground mb-2">
-                      Uploading document... Please wait.
+                      {t('common.loading')}...
                     </div>
                   )}
                 </DialogHeader>
@@ -328,7 +334,7 @@ const DocumentsPage = () => {
                   form={form} 
                   setForm={setForm} 
                   onSubmit={handleAdd} 
-                  label={isUploading ? "Uploading..." : "Upload Document"} 
+                  label={isUploading ? t('common.loading') : t('documents.uploadNew')} 
                   errors={errors} 
                   onFieldChange={clearFieldError} 
                   selectedFile={selectedFile} 
@@ -342,10 +348,10 @@ const DocumentsPage = () => {
         <div className="flex flex-col sm:flex-row gap-3 mb-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search documents..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+            <Input placeholder={t('documents.searchDocuments')} value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-40"><SelectValue placeholder="Status" /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-40"><SelectValue placeholder={t('common.status')} /></SelectTrigger>
             <SelectContent>
               {DOCUMENT_STATUS_FILTER_OPTIONS.map((opt) => (
                 <SelectItem key={opt.value} value={opt.value}>
@@ -363,18 +369,18 @@ const DocumentsPage = () => {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-secondary/30">
-                  <th className="text-left px-4 py-3 text-muted-foreground font-medium">Document Name</th>
-                  <th className="text-left px-4 py-3 text-muted-foreground font-medium">Type</th>
-                  <th className="text-left px-4 py-3 text-muted-foreground font-medium">Expiry Date</th>
-                  <th className="text-left px-4 py-3 text-muted-foreground font-medium">Status</th>
-                  <th className="text-right px-4 py-3 text-muted-foreground font-medium">Actions</th>
+                  <th className="text-left px-4 py-3 text-muted-foreground font-medium">{t('documents.name')}</th>
+                  <th className="text-left px-4 py-3 text-muted-foreground font-medium">{t('documents.category')}</th>
+                  <th className="text-left px-4 py-3 text-muted-foreground font-medium">{t('compliance.expiryDate')}</th>
+                  <th className="text-left px-4 py-3 text-muted-foreground font-medium">{t('common.status')}</th>
+                  <th className="text-right px-4 py-3 text-muted-foreground font-medium">{t('common.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {documents.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
-                      {isLoading ? "Loading documents..." : "No documents found."}
+                      {isLoading ? t('common.loading') : t('documents.noDocumentsFound')}
                     </td>
                   </tr>
                 ) : (
@@ -382,7 +388,7 @@ const DocumentsPage = () => {
                     <tr key={doc.id} className="hover:bg-accent/50 transition-colors">
                       <td className="px-4 py-3 text-foreground font-medium">{doc.name}</td>
                       <td className="px-4 py-3 text-muted-foreground">{docTypeLabels[doc.type] || doc.type}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{doc.expiry_date || 'No expiry'}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{doc.expiry_date || t('documents.noExpiry')}</td>
                       <td className="px-4 py-3">
                         <span
                           className={`text-xs px-2 py-0.5 rounded-full ${documentStatusBadgeClass(doc.status)}`}
@@ -462,8 +468,8 @@ const DocumentsPage = () => {
 
         <Dialog open={editOpen} onOpenChange={(o) => { setEditOpen(o); if (!o) { setEditingId(null); setForm(emptyForm); } }}>
           <DialogContent>
-            <DialogHeader><DialogTitle>Edit Document</DialogTitle></DialogHeader>
-            <DocForm form={form} setForm={setForm} onSubmit={handleEdit} label="Save Changes" errors={errors} onFieldChange={clearFieldError} />
+            <DialogHeader><DialogTitle>{t('common.edit')} {t('documents.name')}</DialogTitle></DialogHeader>
+            <DocForm form={form} setForm={setForm} onSubmit={handleEdit} label={t('common.save')} errors={errors} onFieldChange={clearFieldError} />
           </DialogContent>
         </Dialog>
 
@@ -471,13 +477,13 @@ const DocumentsPage = () => {
         <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
           <DialogContent className="max-w-4xl max-h-[80vh]">
             <DialogHeader>
-              <DialogTitle>Document Preview</DialogTitle>
+              <DialogTitle>{t('documents.documentDetails')}</DialogTitle>
             </DialogHeader>
             {previewUrl && (
               <iframe 
                 src={previewUrl} 
                 className="w-full h-[60vh] border rounded"
-                title="Document Preview"
+                title={t('documents.documentDetails')}
               />
             )}
           </DialogContent>
@@ -492,19 +498,18 @@ const DocumentsPage = () => {
         >
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Confirm Completion</DialogTitle>
+              <DialogTitle>{t('common.completed')}</DialogTitle>
             </DialogHeader>
             <div className="py-4">
               <p className="text-sm text-muted-foreground">
-                Are you sure you want to mark the document "
-                <span className="font-medium text-foreground">{completingDoc?.name}</span>" as completed?
+                {t('documents.approveConfirm')} "{completingDoc?.name}" {t('common.completed')}?
               </p>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setCompleteOpen(false)}>
-                Cancel
+                {t('common.cancel')}
               </Button>
-              <Button onClick={handleComplete}>Mark as Complete</Button>
+              <Button onClick={handleComplete}>{t('common.completed')}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

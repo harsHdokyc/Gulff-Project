@@ -8,8 +8,10 @@ import { Sun, Moon, Loader2, Eye, EyeOff } from "lucide-react";
 import { useAuthContext } from "@/modules/auth/components/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { authService } from "@/modules/auth/services/auth";
+import { useTranslation } from "react-i18next";
 
 const SignInPage = () => {
+  const { t } = useTranslation();
   const [form, setForm] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   const [isSendingReset, setIsSendingReset] = useState(false);
@@ -29,21 +31,21 @@ const SignInPage = () => {
       if (result.success) {
         await refreshAuth();
         toast({
-          title: "Welcome back",
-          description: "Signing you in..."
+          title: t('auth.welcomeBack'),
+          description: t('auth.signIn')
         });
         // AuthGuard redirects once user is in cache (see useAuthQuery hydrateUserFromSession)
       } else {
         toast({
-          title: "Sign in failed",
-          description: result.error || "An error occurred",
+          title: t('errors.general'),
+          description: result.error || t('errors.unknownError'),
           variant: "destructive"
         });
       }
     } catch (error: any) {
       toast({
-        title: "Sign in failed",
-        description: error.message || "An error occurred",
+        title: t('errors.general'),
+        description: error.message || t('errors.unknownError'),
         variant: "destructive"
       });
     }
@@ -53,8 +55,8 @@ const SignInPage = () => {
     const email = form.email.trim();
     if (!email) {
       toast({
-        title: "Email required",
-        description: "Enter your email above, then try again.",
+        title: t('validation.required'),
+        description: t('auth.email'),
         variant: "destructive",
       });
       return;
@@ -65,16 +67,16 @@ const SignInPage = () => {
       const result = await authService.sendPasswordResetEmail(email);
       if (!result.success) {
         toast({
-          title: "Could not send reset email",
-          description: result.error || "Please try again later.",
+          title: t('errors.general'),
+          description: result.error || t('errors.networkError'),
           variant: "destructive",
         });
         return;
       }
 
       toast({
-        title: "Check your email",
-        description: "If an account exists for that address, you will receive a link to reset your password.",
+        title: t('auth.resetPasswordSent'),
+        description: t('auth.resetPasswordSent')
       });
     } finally {
       setIsSendingReset(false);
@@ -92,12 +94,12 @@ const SignInPage = () => {
       </button>
       
       <div className="w-full max-w-sm">
-        <h1 className="font-heading text-2xl font-semibold text-foreground text-center">Welcome back</h1>
-        <p className="mt-2 text-sm text-muted-foreground text-center">Sign in to your account</p>
+        <h1 className="font-heading text-2xl font-semibold text-foreground text-center">{t('auth.welcomeBack')}</h1>
+        <p className="mt-2 text-sm text-muted-foreground text-center">{t('auth.loginToAccount')}</p>
 
         <form className="mt-8 space-y-4" onSubmit={handleSignIn}>
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">{t('auth.email')}</Label>
             <Input 
               id="email" 
               type="email" 
@@ -109,7 +111,7 @@ const SignInPage = () => {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">{t('auth.password')}</Label>
             <div className="relative">
               <Input 
                 id="password" 
@@ -133,13 +135,13 @@ const SignInPage = () => {
           </div>
           <Button type="submit" className="w-full" disabled={isSigningIn}>
             {isSigningIn && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Sign In
+            {t('auth.signIn')}
           </Button>
         </form>
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
-          Don't have an account?{" "}
-          <Link to="/signup" className="text-primary hover:underline">Create an account</Link>
+          {t('auth.dontHaveAccount')}{" "}
+          <Link to="/signup" className="text-primary hover:underline">{t('auth.createAccount')}</Link>
         </p>
         <p className="mt-3 text-center text-sm text-muted-foreground">
           <button
@@ -148,7 +150,7 @@ const SignInPage = () => {
             disabled={isSigningIn || isSendingReset}
             className="text-primary hover:underline disabled:opacity-50 disabled:pointer-events-none"
           >
-            {isSendingReset ? "Sending reset link…" : "Forgot password?"}
+            {isSendingReset ? t('auth.resetPassword') : t('auth.forgotPassword')}
           </button>
         </p>
       </div>

@@ -127,7 +127,6 @@ export function useProCompanies(userId?: string) {
         companies?: {
           id?: string
           name?: string | null
-          industry?: string | null
           country?: string | null
           created_at?: string | null
         } | null
@@ -137,7 +136,6 @@ export function useProCompanies(userId?: string) {
       const mapped = rows.map((row) => ({
         id: row.business_id,
         name: row.business_name || `Company ${String(row.business_id).slice(0, 8)}`,
-        industry: null,
         country: null,
         created_at: null,
       }));
